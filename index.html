@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2e6f77">
+<title>Loggbok</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#f3efe4; --bg-alt:#e9e2d0; --surface:#fffdf9; --ink:#2b2620; --ink-soft:#7a7061;
+    --accent:#2e6f77; --accent-ink:#ffffff; --stamp:#a3432f; --line:#d8cfba;
+    --shadow:0 1px 2px rgba(43,38,32,.08), 0 4px 14px rgba(43,38,32,.06);
+    --radius:10px; --font-display:Georgia,'Iowan Old Style','Palatino Linotype',serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'SF Mono',Consolas,Menlo,monospace;
+  }
+  [data-theme="dark"]{
+    --bg:#12171b; --bg-alt:#1a2126; --surface:#182027; --ink:#e7e2d3; --ink-soft:#8fa0a3;
+    --accent:#4fb3ba; --accent-ink:#0c1417; --stamp:#d16a4e; --line:#2a343a;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; min-height:100vh;
+    background-image:repeating-linear-gradient(var(--bg) 0 27px, var(--line) 27px 28px);
+  }
+  header{
+    padding:18px 20px 10px; display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    background:var(--bg); border-bottom:1px solid var(--line);
+  }
+  header h1{
+    font-family:var(--font-display); font-size:26px; margin:0; font-weight:700; letter-spacing:.3px;
+  }
+  header .meta{font-family:var(--font-mono); font-size:11px; color:var(--ink-soft);}
+  .icon-btn{
+    background:none; border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:7px 9px;
+    cursor:pointer; font-size:15px; line-height:1;
+  }
+  .icon-btn:active{transform:translateY(1px);}
+  main{flex:1; max-width:640px; width:100%; margin:0 auto; padding:16px 16px 90px;}
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:16px;
+  }
+  h2.section-title{
+    font-family:var(--font-display); font-size:18px; margin:0 0 14px; padding-bottom:8px;
+    border-bottom:2px solid var(--accent); display:inline-block;
+  }
+  label{display:block; font-size:13px; color:var(--ink-soft); margin:14px 0 5px; font-weight:600;}
+  label:first-child{margin-top:0;}
+  input[type=text], input[type=date], select, textarea{
+    width:100%; padding:10px 11px; border:1px solid var(--line); border-radius:8px;
+    background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:15px;
+  }
+  input[type=password]{
+    width:100%; padding:10px 11px; border:1px solid var(--line); border-radius:8px;
+    background:var(--bg); color:var(--ink); font-family:var(--font-mono); font-size:15px; letter-spacing:2px;
+  }
+  textarea{min-height:70px; resize:vertical; font-family:var(--font-body);}
+  select{appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%); background-position:calc(100% - 16px) center, calc(100% - 11px) center; background-size:5px 5px,5px 5px; background-repeat:no-repeat;}
+  .row{display:flex; gap:10px;}
+  .row > *{flex:1;}
+  .chip-toggle{display:flex; gap:8px; margin-top:14px;}
+  .chip-toggle button{
+    flex:1; padding:9px; border-radius:8px; border:1px solid var(--line); background:var(--bg);
+    color:var(--ink-soft); font-family:var(--font-body); font-weight:600; font-size:14px; cursor:pointer;
+  }
+  .chip-toggle button.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  .checkline{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; color:var(--ink-soft);}
+  .btn-primary{
+    margin-top:18px; width:100%; padding:12px; background:var(--accent); color:var(--accent-ink);
+    border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font-body);
+  }
+  .btn-primary:active{transform:translateY(1px);}
+  .btn-secondary{
+    padding:10px 14px; background:none; border:1px solid var(--line); color:var(--ink); border-radius:8px;
+    cursor:pointer; font-size:14px; font-family:var(--font-body);
+  }
+  /* Tabs */
+  nav.tabbar{
+    position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--line);
+    display:flex; padding:6px 10px calc(6px + env(safe-area-inset-bottom)); z-index:50;
+  }
+  nav.tabbar button{
+    flex:1; background:none; border:none; color:var(--ink-soft); font-family:var(--font-body);
+    font-size:12px; padding:8px 4px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  nav.tabbar button .ic{font-size:19px;}
+  nav.tabbar button.active{color:var(--accent); font-weight:700;}
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block; animation:fade .15s ease;}
+  @keyframes fade{from{opacity:0} to{opacity:1}}
+  /* Visa - filters */
+  .filters{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+  .filters select{width:auto; flex:1; min-width:120px; font-size:13px; padding:8px 26px 8px 10px;}
+  .subject-group{margin-bottom:22px;}
+  .subject-group h3{
+    font-family:var(--font-display); font-size:16px; margin:0 0 8px; color:var(--accent);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .subject-group h3 .rm{font-size:12px; color:var(--ink-soft); cursor:pointer; font-family:var(--font-body); font-weight:400;}
+  ul.entries{list-style:none; margin:0; padding:0;}
+  li.entry{
+    display:flex; align-items:flex-start; gap:10px; padding:10px 2px; border-bottom:1px dashed var(--line);
+  }
+  li.entry:last-child{border-bottom:none;}
+  .stamp{
+    width:24px; height:24px; border-radius:50%; border:2px solid var(--stamp); flex:none; margin-top:1px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; background:transparent; color:var(--stamp);
+    font-size:14px; font-weight:900; transition:transform .12s ease;
+  }
+  .stamp.done{background:var(--stamp); color:var(--surface); transform:rotate(-8deg) scale(1.03);}
+  .entry-body{flex:1; min-width:0;}
+  .entry-text{font-size:15px; line-height:1.35; word-break:break-word;}
+  .entry-text.done{text-decoration:line-through; color:var(--ink-soft);}
+  .entry-date{font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); margin-top:3px;}
+  .entry-del{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:16px; padding:4px;}
+  .empty{color:var(--ink-soft); font-size:14px; text-align:center; padding:30px 10px; font-style:italic;}
+  /* Sync tab */
+  .status-row{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .dot{width:10px; height:10px; border-radius:50%; background:#5aa85f;}
+  .dot.off{background:#c1573f;}
+  .kv{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--line); font-size:14px;}
+  .kv:last-child{border-bottom:none;}
+  .kv b{font-family:var(--font-mono); font-weight:600;}
+  footer{
+    text-align:center; font-size:12px; color:var(--ink-soft); padding:14px 10px calc(70px + env(safe-area-inset-bottom));
+    max-width:640px; margin:0 auto; width:100%;
+  }
+  /* Overlay (setup + modals) */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,12,10,.55); display:flex; align-items:center; justify-content:center;
+    z-index:100; padding:20px;
+  }
+  .overlay .card{max-width:400px; width:100%;}
+  .overlay .card h2{font-family:var(--font-display); margin-top:0;}
+  .overlay p.hint{font-size:13px; color:var(--ink-soft); line-height:1.5;}
+  .qr-wrap{display:flex; flex-direction:column; align-items:center; gap:12px; margin-top:12px;}
+  .qr-wrap canvas{border-radius:8px; border:1px solid var(--line);}
+  .modal-close{position:absolute; top:14px; right:16px; background:none; border:none; font-size:20px; color:var(--ink-soft); cursor:pointer;}
+  .overlay .card{position:relative;}
+  .toast{
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg);
+    padding:9px 16px; border-radius:20px; font-size:13px; z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .toast.show{opacity:1;}
+  .subject-add-row{display:flex; gap:8px; margin-top:8px;}
+  .subject-add-row input{flex:1;}
+</style>
+</head>
+<body data-theme="light">
+
+<header>
+  <div>
+    <h1>Loggbok</h1>
+    <div class="meta">v<span id="verNum">1.00</span> · <span id="wsLabel">ej ansluten</span></div>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <button class="icon-btn" id="shareBtn" title="Dela app">⇪</button>
+    <button class="icon-btn" id="themeBtn" title="Byt tema">◐</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- SKRIV -->
+  <section class="tabpanel active" id="tab-skriv">
+    <div class="card">
+      <h2 class="section-title">Ny anteckning</h2>
+
+      <label for="inSubject">Ämne</label>
+      <select id="inSubject"></select>
+      <div class="subject-add-row" id="newSubjectRow" style="display:none;">
+        <input type="text" id="newSubjectName" placeholder="Namn på nytt ämne">
+        <button class="btn-secondary" id="newSubjectConfirm">Lägg till</button>
+      </div>
+
+      <div class="chip-toggle">
+        <button type="button" class="type-btn active" data-type="task">✓ Task</button>
+        <button type="button" class="type-btn" data-type="note">✎ Anteckning</button>
+      </div>
+
+      <label for="inText">Text</label>
+      <textarea id="inText" placeholder="Skriv här..."></textarea>
+
+      <label for="inDate">Datum</label>
+      <input type="date" id="inDate">
+      <div class="checkline">
+        <input type="checkbox" id="inNoDate">
+        <label for="inNoDate" style="margin:0; font-weight:400;">Inget datum</label>
+      </div>
+
+      <button class="btn-primary" id="saveBtn">Spara</button>
+    </div>
+  </section>
+
+  <!-- VISA -->
+  <section class="tabpanel" id="tab-visa">
+    <div class="card">
+      <h2 class="section-title">Översikt</h2>
+      <div class="filters">
+        <select id="filterSubject"><option value="">Alla ämnen</option></select>
+        <select id="filterStatus">
+          <option value="alla">Alla</option>
+          <option value="oklara" selected>Ej klara</option>
+          <option value="klara">Klara</option>
+        </select>
+      </div>
+      <div id="entriesRoot"><div class="empty">Inga anteckningar än.</div></div>
+    </div>
+  </section>
+
+  <!-- SYNKRONISERA -->
+  <section class="tabpanel" id="tab-synk">
+    <div class="card">
+      <h2 class="section-title">Synkronisering</h2>
+      <div class="status-row">
+        <span class="dot" id="netDot"></span>
+        <span id="netText">Ansluten — synkar automatiskt</span>
+      </div>
+      <div class="kv"><span>Grupp-ID</span><b id="wsIdShort">–</b></div>
+      <div class="kv"><span>Ämnen</span><b id="statSubjects">0</b></div>
+      <div class="kv"><span>Anteckningar/tasks</span><b id="statItems">0</b></div>
+      <div class="kv"><span>Enhet</span><b id="deviceLabel">–</b></div>
+      <button class="btn-secondary" id="shareGroupBtn" style="margin-top:16px; width:100%;">Visa kod för att koppla ny enhet</button>
+      <button class="btn-secondary" id="leaveGroupBtn" style="margin-top:10px; width:100%; color:var(--stamp); border-color:var(--stamp);">Byt grupp / logga ut</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button data-tab="skriv" class="active"><span class="ic">✎</span>Skriv</button>
+  <button data-tab="visa"><span class="ic">☰</span>Visa</button>
+  <button data-tab="synk"><span class="ic">⇄</span>Synkronisera</button>
+</nav>
+
+<footer>© <span id="yearNow">2026</span> Per Andersson</footer>
+
+<div class="toast" id="toast"></div>
+
+<!-- SETUP OVERLAY -->
+<div class="overlay" id="setupOverlay">
+  <div class="card">
+    <h2>Anslut till grupp</h2>
+    <p class="hint">Skriv en gruppkod och en PIN. Samma kod + PIN på alla enheter kopplar ihop dem — inget konto behövs. Kom ihåg dem, de kan inte återställas.</p>
+    <label for="setupKod">Gruppkod</label>
+    <input type="text" id="setupKod" placeholder="t.ex. familjen-andersson">
+    <label for="setupPin">PIN</label>
+    <input type="password" id="setupPin" inputmode="numeric" placeholder="siffror eller bokstäver">
+    <button class="btn-primary" id="setupConfirm">Anslut</button>
+  </div>
+</div>
+
+<!-- QR MODAL (delad, används både för app-delning och gruppkod) -->
+<div class="overlay" id="qrOverlay" style="display:none;">
+  <div class="card">
+    <button class="modal-close" id="qrClose">✕</button>
+    <h2 id="qrTitle">Dela</h2>
+    <p class="hint" id="qrHint"></p>
+    <div class="qr-wrap">
+      <canvas id="qrCanvas"></canvas>
+      <div id="qrExtra" style="font-family:var(--font-mono); font-size:13px; text-align:center;"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  query, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const APP_VERSION = "1.00";
+document.getElementById("verNum").textContent = APP_VERSION;
+document.getElementById("yearNow").textContent = new Date().getFullYear();
+
+/* ---------- Firebase ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyAf5A3O6arKygExU1ssU40oxYvx9gN6IKs",
+  authDomain: "logg2026.firebaseapp.com",
+  projectId: "logg2026",
+  storageBucket: "logg2026.firebasestorage.app",
+  messagingSenderId: "764242124905",
+  appId: "1:764242124905:web:b67f600177ed491a8902f8"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
+
+let currentUser = null;
+let wsId = null;
+let subjects = [];
+let items = [];
+let unsubSubjects = null, unsubItems = null;
+
+/* ---------- Helpers ---------- */
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+async function sha256Hex(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function todayLocal(){
+  const d = new Date();
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off*60000).toISOString().slice(0,10);
+}
+function fmtDate(iso){
+  if(!iso) return "Inget datum";
+  const [y,m,d] = iso.split("-");
+  return `${d}/${m} ${y}`;
+}
+function deviceLabel(){
+  const ua = navigator.userAgent;
+  if(/iPad/.test(ua)) return "iPad";
+  if(/iPhone/.test(ua)) return "iPhone";
+  if(/Android/.test(ua)) return "Android";
+  if(/Macintosh/.test(ua)) return "Mac";
+  if(/Windows/.test(ua)) return "PC";
+  return "Okänd enhet";
+}
+document.getElementById("deviceLabel").textContent = deviceLabel();
+
+/* ---------- Theme ---------- */
+const themeBtn = document.getElementById("themeBtn");
+function applyTheme(t){
+  document.body.setAttribute("data-theme", t);
+  localStorage.setItem("loggbok-theme", t);
+}
+applyTheme(localStorage.getItem("loggbok-theme") || "light");
+themeBtn.addEventListener("click", ()=>{
+  applyTheme(document.body.getAttribute("data-theme") === "light" ? "dark" : "light");
+});
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll("nav.tabbar button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("nav.tabbar button").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".tabpanel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ---------- Setup / workspace ---------- */
+const setupOverlay = document.getElementById("setupOverlay");
+async function computeWsId(kod, pin){
+  return sha256Hex(kod.trim().toLowerCase() + "::" + pin.trim());
+}
+async function tryLoadWorkspace(){
+  const saved = JSON.parse(localStorage.getItem("loggbok-ws") || "null");
+  if(saved && saved.wsId){
+    wsId = saved.wsId;
+    setupOverlay.style.display = "none";
+    startWorkspaceListeners();
+  } else {
+    setupOverlay.style.display = "flex";
+  }
+}
+document.getElementById("setupConfirm").addEventListener("click", async ()=>{
+  const kod = document.getElementById("setupKod").value.trim();
+  const pin = document.getElementById("setupPin").value.trim();
+  if(!kod || !pin){ toast("Fyll i både kod och PIN"); return; }
+  const id = await computeWsId(kod, pin);
+  localStorage.setItem("loggbok-ws", JSON.stringify({wsId:id, kod}));
+  wsId = id;
+  setupOverlay.style.display = "none";
+  startWorkspaceListeners();
+  toast("Ansluten!");
+});
+document.getElementById("leaveGroupBtn").addEventListener("click", ()=>{
+  if(!confirm("Byta grupp? Du kopplas bort från nuvarande grupp (datan finns kvar i molnet).")) return;
+  localStorage.removeItem("loggbok-ws");
+  if(unsubSubjects) unsubSubjects();
+  if(unsubItems) unsubItems();
+  subjects = []; items = [];
+  document.getElementById("setupKod").value = "";
+  document.getElementById("setupPin").value = "";
+  setupOverlay.style.display = "flex";
+  document.getElementById("wsLabel").textContent = "ej ansluten";
+  document.getElementById("wsIdShort").textContent = "–";
+});
+
+/* ---------- Auth ---------- */
+onAuthStateChanged(auth, user=>{
+  if(user){
+    currentUser = user;
+    tryLoadWorkspace();
+  }
+});
+signInAnonymously(auth).catch(err=>{
+  console.error(err);
+  toast("Kunde inte ansluta till Firebase");
+});
+
+/* ---------- Firestore listeners ---------- */
+function startWorkspaceListeners(){
+  document.getElementById("wsLabel").textContent = "ansluten";
+  document.getElementById("wsIdShort").textContent = wsId.slice(0,10) + "…";
+
+  const subjectsCol = collection(db, "workspaces", wsId, "subjects");
+  const itemsCol = collection(db, "workspaces", wsId, "items");
+
+  if(unsubSubjects) unsubSubjects();
+  if(unsubItems) unsubItems();
+
+  unsubSubjects = onSnapshot(query(subjectsCol, orderBy("createdAt","asc")), snap=>{
+    subjects = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    renderSubjectSelects();
+    renderEntries();
+    document.getElementById("statSubjects").textContent = subjects.length;
+  }, err=>console.error(err));
+
+  unsubItems = onSnapshot(query(itemsCol, orderBy("createdAt","desc")), snap=>{
+    items = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    renderEntries();
+    document.getElementById("statItems").textContent = items.length;
+  }, err=>console.error(err));
+}
+
+/* ---------- Subjects ---------- */
+const inSubject = document.getElementById("inSubject");
+const filterSubject = document.getElementById("filterSubject");
+inSubject.addEventListener("change", ()=>{
+  document.getElementById("newSubjectRow").style.display = inSubject.value === "__new__" ? "flex" : "none";
+});
+document.getElementById("newSubjectConfirm").addEventListener("click", async ()=>{
+  const name = document.getElementById("newSubjectName").value.trim();
+  if(!name) return;
+  await addDoc(collection(db,"workspaces",wsId,"subjects"), {name, createdAt: serverTimestamp()});
+  document.getElementById("newSubjectName").value = "";
+  document.getElementById("newSubjectRow").style.display = "none";
+  toast("Ämne tillagt");
+});
+function renderSubjectSelects(){
+  const opts = subjects.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+  const prevIn = inSubject.value, prevFilter = filterSubject.value;
+  inSubject.innerHTML = opts + `<option value="__new__">+ Nytt ämne...</option>`;
+  filterSubject.innerHTML = `<option value="">Alla ämnen</option>` + opts;
+  if(subjects.some(s=>s.id===prevIn)) inSubject.value = prevIn;
+  if(subjects.some(s=>s.id===prevFilter)) filterSubject.value = prevFilter;
+}
+async function deleteSubject(id, name){
+  const hasItems = items.some(i=>i.subjectId===id);
+  const msg = hasItems ? `"${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?` : `Ta bort ämnet "${name}"?`;
+  if(!confirm(msg)) return;
+  for(const it of items.filter(i=>i.subjectId===id)){
+    await deleteDoc(doc(db,"workspaces",wsId,"items",it.id));
+  }
+  await deleteDoc(doc(db,"workspaces",wsId,"subjects",id));
+  toast("Ämne borttaget");
+}
+
+/* ---------- Skriv: type toggle + date ---------- */
+let selectedType = "task";
+document.querySelectorAll(".type-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".type-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedType = btn.dataset.type;
+  });
+});
+const inDate = document.getElementById("inDate");
+const inNoDate = document.getElementById("inNoDate");
+inDate.value = todayLocal();
+inNoDate.addEventListener("change", ()=>{
+  inDate.disabled = inNoDate.checked;
+});
+
+document.getElementById("saveBtn").addEventListener("click", async ()=>{
+  if(!wsId){ toast("Anslut till en grupp först"); return; }
+  let subjectId = inSubject.value;
+  const text = document.getElementById("inText").value.trim();
+  if(!text){ toast("Skriv någon text"); return; }
+  if(!subjectId || subjectId === "__new__"){
+    const name = document.getElementById("newSubjectName").value.trim();
+    if(!name){ toast("Välj eller skapa ett ämne"); return; }
+    const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name, createdAt: serverTimestamp()});
+    subjectId = ref.id;
+  }
+  const dateVal = inNoDate.checked ? null : inDate.value;
+  await addDoc(collection(db,"workspaces",wsId,"items"), {
+    subjectId, type: selectedType, text, date: dateVal, done: false,
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  });
+  document.getElementById("inText").value = "";
+  inNoDate.checked = false; inDate.disabled = false; inDate.value = todayLocal();
+  toast("Sparat");
+});
+
+/* ---------- Visa: render entries ---------- */
+filterSubject.addEventListener("change", renderEntries);
+document.getElementById("filterStatus").addEventListener("change", renderEntries);
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function renderEntries(){
+  const root = document.getElementById("entriesRoot");
+  const subFilter = filterSubject.value;
+  const statusFilter = document.getElementById("filterStatus").value;
+
+  let filtered = items.filter(it=>{
+    if(subFilter && it.subjectId !== subFilter) return false;
+    if(statusFilter === "klara" && !it.done) return false;
+    if(statusFilter === "oklara" && it.done && it.type==="task") return false;
+    return true;
+  });
+
+  if(filtered.length === 0){
+    root.innerHTML = `<div class="empty">Inga anteckningar matchar filtret.</div>`;
+    return;
+  }
+
+  const groups = {};
+  filtered.forEach(it=>{
+    const key = it.subjectId || "_";
+    (groups[key] = groups[key] || []).push(it);
+  });
+
+  let html = "";
+  Object.keys(groups).forEach(key=>{
+    const subject = subjects.find(s=>s.id===key);
+    const subjectName = subject ? subject.name : "Övrigt";
+    html += `<div class="subject-group">
+      <h3>${escapeHtml(subjectName)} <span class="rm" data-delsub="${key}">${subject ? "ta bort ämne" : ""}</span></h3>
+      <ul class="entries">`;
+    groups[key].forEach(it=>{
+      const isTask = it.type === "task";
+      html += `<li class="entry">
+        ${isTask ? `<button class="stamp ${it.done?"done":""}" data-toggle="${it.id}">${it.done?"✓":""}</button>` : `<span style="width:24px;flex:none;text-align:center;color:var(--ink-soft);">✎</span>`}
+        <div class="entry-body">
+          <div class="entry-text ${it.done?"done":""}">${escapeHtml(it.text)}</div>
+          <div class="entry-date">${fmtDate(it.date)}</div>
+        </div>
+        <button class="entry-del" data-del="${it.id}">🗑</button>
+      </li>`;
+    });
+    html += `</ul></div>`;
+  });
+  root.innerHTML = html;
+
+  root.querySelectorAll("[data-toggle]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const it = items.find(i=>i.id===btn.dataset.toggle);
+      await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {done: !it.done, updatedAt: serverTimestamp()});
+    });
+  });
+  root.querySelectorAll("[data-del]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      if(!confirm("Ta bort denna post?")) return;
+      await deleteDoc(doc(db,"workspaces",wsId,"items",btn.dataset.del));
+    });
+  });
+  root.querySelectorAll("[data-delsub]").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const subject = subjects.find(s=>s.id===el.dataset.delsub);
+      if(subject) deleteSubject(subject.id, subject.name);
+    });
+  });
+}
+
+/* ---------- Online/offline status ---------- */
+function updateNetStatus(){
+  const dot = document.getElementById("netDot");
+  const txt = document.getElementById("netText");
+  if(navigator.onLine){
+    dot.classList.remove("off");
+    txt.textContent = "Ansluten — synkar automatiskt";
+  } else {
+    dot.classList.add("off");
+    txt.textContent = "Offline — ändringar synkas när nätet är tillbaka";
+  }
+}
+window.addEventListener("online", updateNetStatus);
+window.addEventListener("offline", updateNetStatus);
+updateNetStatus();
+
+/* ---------- QR modal (app-delning + gruppkod) ---------- */
+const qrOverlay = document.getElementById("qrOverlay");
+document.getElementById("qrClose").addEventListener("click", ()=>qrOverlay.style.display="none");
+qrOverlay.addEventListener("click", e=>{ if(e.target===qrOverlay) qrOverlay.style.display="none"; });
+
+document.getElementById("shareBtn").addEventListener("click", ()=>{
+  document.getElementById("qrTitle").textContent = "Dela appen";
+  document.getElementById("qrHint").textContent = "Skanna för att öppna Loggbok på en annan enhet, eller installera från länken.";
+  document.getElementById("qrExtra").textContent = location.href;
+  QRCode.toCanvas(document.getElementById("qrCanvas"), location.href, {width:220, margin:1});
+  qrOverlay.style.display = "flex";
+});
+document.getElementById("shareGroupBtn").addEventListener("click", ()=>{
+  const saved = JSON.parse(localStorage.getItem("loggbok-ws") || "null");
+  if(!saved){ toast("Ingen aktiv grupp"); return; }
+  document.getElementById("qrTitle").textContent = "Koppla ny enhet";
+  document.getElementById("qrHint").textContent = "Skriv in samma gruppkod och PIN på den andra enheten (öppna appen där, klart går inte att skanna PIN av säkerhetsskäl).";
+  document.getElementById("qrExtra").innerHTML = `Gruppkod: <b>${escapeHtml(saved.kod)}</b><br><span style="color:var(--ink-soft)">(PIN visas ej av säkerhetsskäl — ange den du själv valde)</span>`;
+  document.getElementById("qrCanvas").getContext("2d").clearRect(0,0,999,999);
+  document.getElementById("qrCanvas").width = 0;
+  qrOverlay.style.display = "flex";
+});
+
+/* ---------- Manifest + icons + service worker ---------- */
+function generateIcon(size){
+  const c = document.createElement("canvas");
+  c.width = size; c.height = size;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#2e6f77";
+  ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle = "#f3efe4";
+  ctx.lineWidth = size*0.05;
+  ctx.strokeRect(size*0.18, size*0.14, size*0.64, size*0.74);
+  ctx.beginPath();
+  for(let y=size*0.32; y<size*0.8; y+=size*0.14){
+    ctx.moveTo(size*0.28, y); ctx.lineTo(size*0.72, y);
+  }
+  ctx.strokeStyle = "#f3efe4"; ctx.lineWidth = size*0.025;
+  ctx.stroke();
+  return c.toDataURL("image/png");
+}
+const icon192 = generateIcon(192);
+const icon512 = generateIcon(512);
+const linkIcon = document.createElement("link");
+linkIcon.rel = "icon"; linkIcon.href = icon192;
+document.head.appendChild(linkIcon);
+const linkApple = document.createElement("link");
+linkApple.rel = "apple-touch-icon"; linkApple.href = icon192;
+document.head.appendChild(linkApple);
+
+const manifest = {
+  name: "Loggbok", short_name: "Loggbok", start_url: ".", display: "standalone",
+  background_color: "#f3efe4", theme_color: "#2e6f77",
+  icons: [
+    {src: icon192, sizes: "192x192", type: "image/png"},
+    {src: icon512, sizes: "512x512", type: "image/png"}
+  ]
+};
+const manifestBlob = new Blob([JSON.stringify(manifest)], {type:"application/json"});
+const linkManifest = document.createElement("link");
+linkManifest.rel = "manifest"; linkManifest.href = URL.createObjectURL(manifestBlob);
+document.head.appendChild(linkManifest);
+
+const swCode = `
+const CACHE = "loggbok-v${APP_VERSION}";
+self.addEventListener("install", e => { self.skipWaiting(); });
+self.addEventListener("activate", e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener("fetch", e => {
+  if(e.request.method !== "GET") return;
+  e.respondWith(
+    fetch(e.request).then(res=>{
+      const resClone = res.clone();
+      caches.open(CACHE).then(c=>c.put(e.request, resClone));
+      return res;
+    }).catch(()=> caches.match(e.request).then(r=> r || caches.match("./")))
+  );
+});
+`;
+if("serviceWorker" in navigator){
+  const swBlob = new Blob([swCode], {type:"application/javascript"});
+  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err=>console.warn("SW-fel", err));
+}
+</script>
+</body>
+</html>
