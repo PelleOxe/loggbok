@@ -106,12 +106,9 @@
     display:flex; align-items:flex-start; gap:10px; padding:10px 2px; border-bottom:1px dashed var(--line);
   }
   li.entry:last-child{border-bottom:none;}
-  .stamp{
-    width:24px; height:24px; border-radius:50%; border:2px solid var(--stamp); flex:none; margin-top:1px;
-    display:flex; align-items:center; justify-content:center; cursor:pointer; background:transparent; color:var(--stamp);
-    font-size:14px; font-weight:900; transition:transform .12s ease;
+  .done-checkbox{
+    width:20px; height:20px; flex:none; margin-top:2px; accent-color:var(--stamp); cursor:pointer;
   }
-  .stamp.done{background:var(--stamp); color:var(--surface); transform:rotate(-8deg) scale(1.03);}
   .entry-body{flex:1; min-width:0;}
   .entry-text{font-size:15px; line-height:1.35; word-break:break-word;}
   .entry-text.done{text-decoration:line-through; color:var(--ink-soft);}
@@ -183,8 +180,11 @@
       </div>
 
       <label for="inSubcat">Undergrupp (valfritt)</label>
-      <input type="text" id="inSubcat" list="subcatList" placeholder="t.ex. Reservdelar, Motorolja...">
-      <datalist id="subcatList"></datalist>
+      <select id="inSubcat"><option value="">Ingen undergrupp</option></select>
+      <div class="subject-add-row" id="newSubcatRow" style="display:none;">
+        <input type="text" id="newSubcatName" placeholder="Namn på ny undergrupp">
+        <button class="btn-secondary" id="newSubcatConfirm">Lägg till</button>
+      </div>
 
       <label for="inText">Text</label>
       <textarea id="inText" placeholder="Skriv här..."></textarea>
@@ -2580,7 +2580,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.04";
+const APP_VERSION = "1.05";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2602,8 +2602,9 @@ const db = initializeFirestore(app, {
 let currentUser = null;
 let wsId = null;
 let subjects = [];
+let subcats = [];
 let items = [];
-let unsubSubjects = null, unsubItems = null;
+let unsubSubjects = null, unsubSubcats = null, unsubItems = null;
 
 /* ---------- Helpers ---------- */
 function toast(msg){
@@ -2714,9 +2715,11 @@ function startWorkspaceListeners(){
   document.getElementById("wsIdShort").textContent = wsId.slice(0,10) + "…";
 
   const subjectsCol = collection(db, "workspaces", wsId, "subjects");
+  const subcatsCol = collection(db, "workspaces", wsId, "subcats");
   const itemsCol = collection(db, "workspaces", wsId, "items");
 
   if(unsubSubjects) unsubSubjects();
+  if(unsubSubcats) unsubSubcats();
   if(unsubItems) unsubItems();
 
   unsubSubjects = onSnapshot(query(subjectsCol, orderBy("createdAt","asc")), snap=>{
@@ -2726,10 +2729,15 @@ function startWorkspaceListeners(){
     document.getElementById("statSubjects").textContent = subjects.length;
   }, err=>console.error(err));
 
+  unsubSubcats = onSnapshot(query(subcatsCol, orderBy("createdAt","asc")), snap=>{
+    subcats = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    renderSubcatSelect();
+    renderEntries();
+  }, err=>console.error(err));
+
   unsubItems = onSnapshot(query(itemsCol, orderBy("createdAt","desc")), snap=>{
     items = snap.docs.map(d=>({id:d.id, ...d.data()}));
     renderEntries();
-    updateSubcatSuggestions();
     document.getElementById("statItems").textContent = items.length;
   }, err=>console.error(err));
 }
@@ -2741,13 +2749,41 @@ function syncNewSubjectRow(){
   document.getElementById("newSubjectRow").style.display = inSubject.value === "__new__" ? "flex" : "none";
 }
 inSubject.addEventListener("change", syncNewSubjectRow);
-inSubject.addEventListener("change", updateSubcatSuggestions);
-function updateSubcatSuggestions(){
-  const subjectId = inSubject.value;
-  const list = document.getElementById("subcatList");
-  const subcats = [...new Set(items.filter(i=>i.subjectId===subjectId && i.subcat).map(i=>i.subcat))].sort((a,b)=>a.localeCompare(b,"sv"));
-  list.innerHTML = subcats.map(s=>`<option value="${escapeHtml(s)}"></option>`).join("");
+inSubject.addEventListener("change", renderSubcatSelect);
+const inSubcat = document.getElementById("inSubcat");
+function syncNewSubcatRow(){
+  document.getElementById("newSubcatRow").style.display = inSubcat.value === "__new__" ? "flex" : "none";
 }
+inSubcat.addEventListener("change", syncNewSubcatRow);
+let pendingSelectSubcatId = null;
+function renderSubcatSelect(){
+  const subjectId = inSubject.value;
+  const relevant = subcats.filter(sc=>sc.subjectId===subjectId).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
+  const prev = inSubcat.value;
+  inSubcat.innerHTML = `<option value="">Ingen undergrupp</option>`
+    + relevant.map(sc=>`<option value="${sc.id}">${escapeHtml(sc.name)}</option>`).join("")
+    + `<option value="__new__">+ Ny undergrupp...</option>`;
+  if(pendingSelectSubcatId && relevant.some(sc=>sc.id===pendingSelectSubcatId)){
+    inSubcat.value = pendingSelectSubcatId;
+    pendingSelectSubcatId = null;
+  } else if(relevant.some(sc=>sc.id===prev)){
+    inSubcat.value = prev;
+  } else {
+    inSubcat.value = "";
+  }
+  syncNewSubcatRow();
+}
+document.getElementById("newSubcatConfirm").addEventListener("click", async ()=>{
+  const subjectId = inSubject.value;
+  if(!subjectId || subjectId === "__new__"){ toast("Välj eller skapa ett ämne först"); return; }
+  const name = document.getElementById("newSubcatName").value.trim();
+  if(!name) return;
+  const ref = await addDoc(collection(db,"workspaces",wsId,"subcats"), {subjectId, name, createdAt: serverTimestamp()});
+  pendingSelectSubcatId = ref.id;
+  document.getElementById("newSubcatName").value = "";
+  document.getElementById("newSubcatRow").style.display = "none";
+  toast("Undergrupp tillagd");
+});
 let pendingSelectSubjectId = null;
 document.getElementById("newSubjectConfirm").addEventListener("click", async ()=>{
   const name = document.getElementById("newSubjectName").value.trim();
@@ -2800,6 +2836,7 @@ function renderSubjectSelects(){
   }
   if(subjects.some(s=>s.id===prevFilter)) filterSubject.value = prevFilter;
   syncNewSubjectRow();
+  renderSubcatSelect();
 }
 async function deleteSubject(id, name){
   const hasItems = items.some(i=>i.subjectId===id);
@@ -2807,6 +2844,9 @@ async function deleteSubject(id, name){
   if(!confirm(msg)) return;
   for(const it of items.filter(i=>i.subjectId===id)){
     await deleteDoc(doc(db,"workspaces",wsId,"items",it.id));
+  }
+  for(const sc of subcats.filter(sc=>sc.subjectId===id)){
+    await deleteDoc(doc(db,"workspaces",wsId,"subcats",sc.id));
   }
   await deleteDoc(doc(db,"workspaces",wsId,"subjects",id));
   toast("Ämne borttaget");
@@ -2840,14 +2880,21 @@ document.getElementById("saveBtn").addEventListener("click", async ()=>{
     subjectId = ref.id;
     pendingSelectSubjectId = ref.id;
   }
+  let subcatId = inSubcat.value || null;
+  if(subcatId === "__new__"){
+    const scName = document.getElementById("newSubcatName").value.trim();
+    if(!scName){ toast("Skriv ett namn på undergruppen, eller välj \"Ingen undergrupp\""); return; }
+    const scRef = await addDoc(collection(db,"workspaces",wsId,"subcats"), {subjectId, name: scName, createdAt: serverTimestamp()});
+    subcatId = scRef.id;
+  }
   const dateVal = inNoDate.checked ? null : inDate.value;
-  const subcat = document.getElementById("inSubcat").value.trim() || null;
   await addDoc(collection(db,"workspaces",wsId,"items"), {
-    subjectId, type: selectedType, text, date: dateVal, done: false, subcat,
+    subjectId, type: selectedType, text, date: dateVal, done: false, subcatId,
     createdAt: serverTimestamp(), updatedAt: serverTimestamp()
   });
   document.getElementById("inText").value = "";
-  document.getElementById("inSubcat").value = "";
+  document.getElementById("newSubcatName").value = "";
+  document.getElementById("newSubcatRow").style.display = "none";
   inNoDate.checked = false; inDate.disabled = false; inDate.value = todayLocal();
   toast("Sparat");
 });
@@ -2913,15 +2960,21 @@ function renderEntries(){
       const bySubcat = {};
       const noSubcat = [];
       groupItems.forEach(it=>{
-        if(it.subcat){ (bySubcat[it.subcat] = bySubcat[it.subcat] || []).push(it); }
+        if(it.subcatId){ (bySubcat[it.subcatId] = bySubcat[it.subcatId] || []).push(it); }
         else{ noSubcat.push(it); }
       });
       html += renderEntryItems(sortItemsForDisplay(noSubcat));
-      Object.keys(bySubcat).sort((a,b)=>a.localeCompare(b,"sv")).forEach(subcatName=>{
+      const subcatIds = Object.keys(bySubcat).sort((a,b)=>{
+        const nameA = subcats.find(sc=>sc.id===a)?.name || "";
+        const nameB = subcats.find(sc=>sc.id===b)?.name || "";
+        return nameA.localeCompare(nameB,"sv");
+      });
+      subcatIds.forEach(subcatId=>{
+        const subcatName = subcats.find(sc=>sc.id===subcatId)?.name || "Okänd undergrupp";
         html += `<li style="list-style:none; margin:10px 0 2px; padding-top:6px; border-top:1px solid var(--line);">
           <span style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--accent); font-weight:700;">${escapeHtml(subcatName)}</span>
         </li>`;
-        html += renderEntryItems(sortItemsForDisplay(bySubcat[subcatName]));
+        html += renderEntryItems(sortItemsForDisplay(bySubcat[subcatId]));
       });
     }
     html += `</ul></div>`;
@@ -2932,7 +2985,7 @@ function renderEntries(){
     return list.map(it=>{
       const isTask = it.type === "task";
       return `<li class="entry">
-        ${isTask ? `<button class="stamp ${it.done?"done":""}" data-toggle="${it.id}">${it.done?"✓":""}</button>` : `<span style="width:24px;flex:none;text-align:center;color:var(--ink-soft);">✎</span>`}
+        ${isTask ? `<input type="checkbox" class="done-checkbox" data-toggle="${it.id}" ${it.done?"checked":""}>` : `<span style="width:20px;flex:none;text-align:center;color:var(--ink-soft);">✎</span>`}
         <div class="entry-body">
           <div class="entry-text ${it.done?"done":""}">${escapeHtml(it.text)}</div>
           <div class="entry-date">${fmtDate(it.date)}</div>
@@ -2942,10 +2995,9 @@ function renderEntries(){
     }).join("");
   }
 
-  root.querySelectorAll("[data-toggle]").forEach(btn=>{
-    btn.addEventListener("click", async ()=>{
-      const it = items.find(i=>i.id===btn.dataset.toggle);
-      await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {done: !it.done, updatedAt: serverTimestamp()});
+  root.querySelectorAll("[data-toggle]").forEach(cb=>{
+    cb.addEventListener("change", async ()=>{
+      await updateDoc(doc(db,"workspaces",wsId,"items",cb.dataset.toggle), {done: cb.checked, updatedAt: serverTimestamp()});
     });
   });
   root.querySelectorAll("[data-del]").forEach(btn=>{
