@@ -102,6 +102,14 @@
   .tabpanel.active{display:block; animation:fade .15s ease;}
   @keyframes fade{from{opacity:0} to{opacity:1}}
   /* Visa - filters */
+  .search-wrap{position:relative;}
+  .search-wrap input{padding-right:34px;}
+  #searchClear{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--ink-soft); font-size:14px; cursor:pointer;
+    width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  }
+  #searchClear:hover{background:var(--bg-alt);}
   .filters{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
   .filter-group{flex:1; min-width:130px;}
   .filter-group label{font-size:11px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.4px;}
@@ -236,7 +244,10 @@
       </div>
 
       <label for="searchInput" style="margin-top:0;">Sök</label>
-      <input type="text" id="searchInput" placeholder="Sök i texten...">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="Sök i texten...">
+        <button type="button" id="searchClear" title="Rensa sökning" style="display:none;">✕</button>
+      </div>
 
       <div class="filters">
         <div class="filter-group">
@@ -2657,7 +2668,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.11";
+const APP_VERSION = "1.12";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3069,7 +3080,18 @@ filterSubject.addEventListener("change", ()=>{ renderSubcatFilter(); saveViewPre
 filterSubcat.addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
 document.getElementById("filterStatus").addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
 document.getElementById("viewMode").addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
-document.getElementById("searchInput").addEventListener("input", renderEntries);
+const searchInput = document.getElementById("searchInput");
+const searchClear = document.getElementById("searchClear");
+function updateSearchClear(){
+  searchClear.style.display = searchInput.value ? "flex" : "none";
+}
+searchInput.addEventListener("input", ()=>{ updateSearchClear(); renderEntries(); });
+searchClear.addEventListener("click", ()=>{
+  searchInput.value = "";
+  updateSearchClear();
+  renderEntries();
+  searchInput.focus();
+});
 
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
