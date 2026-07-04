@@ -27,17 +27,29 @@
     background-image:repeating-linear-gradient(var(--bg) 0 27px, var(--line) 27px 28px);
   }
   header{
-    padding:18px 20px 10px; display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    padding:16px 20px 12px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
     background:var(--bg); border-bottom:1px solid var(--line);
   }
   header h1{
-    font-family:var(--font-display); font-size:26px; margin:0; font-weight:700; letter-spacing:.3px;
+    font-family:var(--font-display); font-size:26px; margin:0; font-weight:700; letter-spacing:.3px; line-height:1;
   }
-  header .meta{font-family:var(--font-mono); font-size:11px; color:var(--ink-soft);}
+  header .meta{font-family:var(--font-mono); font-size:12px; color:var(--ink-soft);}
+  .net-row{display:flex; align-items:center; gap:7px; margin-top:7px;}
+  .led{
+    width:10px; height:10px; border-radius:50%; flex:none; display:inline-block;
+    background:radial-gradient(circle at 35% 28%, #d9ffe0 0%, #5fdb70 22%, #279a35 60%, #155e1f 100%);
+    box-shadow:0 0 5px 1px rgba(39,154,53,.75), inset 0 -1px 1px rgba(0,0,0,.3), inset 0 1px 1px rgba(255,255,255,.4);
+    transition:background .2s ease, box-shadow .2s ease;
+  }
+  .led.off{
+    background:radial-gradient(circle at 35% 28%, #ffdcd4 0%, #e2593f 22%, #a52f26 60%, #641b16 100%);
+    box-shadow:0 0 5px 1px rgba(165,47,38,.75), inset 0 -1px 1px rgba(0,0,0,.3), inset 0 1px 1px rgba(255,255,255,.3);
+  }
   .icon-btn{
-    background:none; border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:7px 9px;
-    cursor:pointer; font-size:15px; line-height:1;
+    background:none; border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:7px 12px;
+    cursor:pointer; font-size:13px; line-height:1; display:flex; align-items:center; gap:5px; font-family:var(--font-body); font-weight:600;
   }
+  .icon-btn span{font-size:15px;}
   .icon-btn:active{transform:translateY(1px);}
   .app-layout{flex:1; display:flex; flex-direction:column; width:100%;}
   main{flex:1; max-width:640px; width:100%; margin:0 auto; padding:16px 16px 24px;}
@@ -86,7 +98,7 @@
   }
   nav.tabbar button{
     flex:1; background:none; border:none; color:var(--ink-soft); font-family:var(--font-body);
-    font-size:12px; padding:8px 4px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px;
+    font-size:13px; padding:8px 4px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px;
   }
   nav.tabbar button .ic{font-size:19px;}
   nav.tabbar button.active{color:var(--accent); font-weight:700;}
@@ -112,14 +124,14 @@
   #searchClear:hover{background:var(--bg-alt);}
   .filters{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
   .filter-group{flex:1; min-width:130px;}
-  .filter-group label{font-size:11px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.4px;}
+  .filter-group label{font-size:12px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.4px;}
   .filters select{width:100%; font-size:13px; padding:8px 26px 8px 10px;}
   .subject-group{margin-bottom:22px;}
   .subject-group h3{
     font-family:var(--font-display); font-size:16px; margin:0 0 8px; color:var(--accent);
     display:flex; align-items:center; justify-content:space-between;
   }
-  .subject-group h3 .rm{font-size:12px; color:var(--ink-soft); cursor:pointer; font-family:var(--font-body); font-weight:400;}
+  .subject-group h3 .rm{font-size:13px; color:var(--ink-soft); cursor:pointer; font-family:var(--font-body); font-weight:400;}
   ul.entries{list-style:none; margin:0; padding:0;}
   li.entry{
     display:flex; align-items:flex-start; gap:10px; padding:10px 2px; border-bottom:1px dashed var(--line);
@@ -131,14 +143,14 @@
   .entry-icon{width:20px; flex:none; text-align:center; color:var(--ink-soft); margin-top:1px;}
   .todo-dates{
     display:flex; align-items:center; gap:8px; flex:none; margin-left:4px; margin-top:2px;
-    font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); white-space:nowrap;
+    font-family:var(--font-mono); font-size:12px; color:var(--ink-soft); white-space:nowrap;
   }
   .todo-dates .added-date.done{color:var(--done);}
   .todo-dates .done-date{color:var(--done);}
   .entry-body{flex:1; min-width:0;}
   .entry-text{font-size:15px; line-height:1.35; word-break:break-word; white-space:pre-wrap;}
   .entry-text.done{text-decoration:line-through; color:var(--ink-soft);}
-  .entry-date{font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); margin-top:3px;}
+  .entry-date{font-family:var(--font-mono); font-size:12px; color:var(--ink-soft); margin-top:3px;}
   .entry-del{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:16px; padding:4px;}
   .entry-edit{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:14px; padding:4px;}
   .empty{color:var(--ink-soft); font-size:14px; text-align:center; padding:30px 10px; font-style:italic;}
@@ -150,7 +162,7 @@
   .kv:last-child{border-bottom:none;}
   .kv b{font-family:var(--font-mono); font-weight:600;}
   footer{
-    text-align:center; font-size:12px; color:var(--ink-soft); padding:8px 10px calc(10px + env(safe-area-inset-bottom));
+    text-align:center; font-size:13px; color:var(--ink-soft); padding:8px 10px calc(10px + env(safe-area-inset-bottom));
     max-width:640px; margin:0 auto; width:100%;
   }
   /* Overlay (setup + modals) */
@@ -178,12 +190,18 @@
 
 <header>
   <div>
-    <h1>Loggbok</h1>
-    <div class="meta"><span class="dot" id="headerDot" style="display:inline-block;vertical-align:middle;margin-right:6px;"></span>v<span id="verNum">1.00</span> · <span id="wsLabel">ej ansluten</span></div>
+    <div style="display:flex; align-items:baseline; gap:8px;">
+      <h1>Loggbok</h1>
+      <span class="meta">v<span id="verNum">1.00</span></span>
+    </div>
+    <div class="net-row">
+      <span class="led" id="headerDot"></span>
+      <span id="netStatusLabel" class="meta">Ansluten</span>
+    </div>
   </div>
   <div style="display:flex; gap:8px;">
-    <button class="icon-btn" id="shareBtn" title="Dela app">📤</button>
-    <button class="icon-btn" id="themeBtn" title="Byt tema">◐</button>
+    <button class="icon-btn" id="shareBtn" title="Dela app"><span>📤</span> Dela</button>
+    <button class="icon-btn" id="themeBtn" title="Byt tema"><span>◐</span> Tema</button>
   </div>
 </header>
 
@@ -2668,7 +2686,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.12";
+const APP_VERSION = "1.13";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2797,7 +2815,6 @@ document.getElementById("leaveGroupBtn").addEventListener("click", ()=>{
   document.getElementById("setupKod").value = "";
   document.getElementById("setupPin").value = "";
   setupOverlay.style.display = "flex";
-  document.getElementById("wsLabel").textContent = "ej ansluten";
   document.getElementById("wsIdShort").textContent = "–";
 });
 
@@ -2815,7 +2832,6 @@ signInAnonymously(auth).catch(err=>{
 
 /* ---------- Firestore listeners ---------- */
 function startWorkspaceListeners(){
-  document.getElementById("wsLabel").textContent = "ansluten";
   document.getElementById("wsIdShort").textContent = wsId.slice(0,10) + "…";
 
   const subjectsCol = collection(db, "workspaces", wsId, "subjects");
@@ -3183,7 +3199,7 @@ function renderEntries(){
       subcatIds.forEach(subcatId=>{
         const subcatName = subcats.find(sc=>sc.id===subcatId)?.name || "Okänd undergrupp";
         html += `<li style="list-style:none; margin:10px 0 2px; padding-top:6px; border-top:1px solid var(--line);">
-          <span style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--accent); font-weight:700;">${escapeHtml(subcatName)}</span>
+          <span style="font-family:var(--font-mono); font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--accent); font-weight:700;">${escapeHtml(subcatName)}</span>
         </li>`;
         html += renderEntryItems(sortItemsForDisplay(bySubcat[subcatId]));
       });
@@ -3250,14 +3266,17 @@ function updateNetStatus(){
   const dot = document.getElementById("netDot");
   const txt = document.getElementById("netText");
   const headerDot = document.getElementById("headerDot");
+  const headerLabel = document.getElementById("netStatusLabel");
   if(navigator.onLine){
     dot.classList.remove("off");
     headerDot.classList.remove("off");
     txt.textContent = "Ansluten — synkar automatiskt";
+    headerLabel.textContent = "Ansluten";
   } else {
     dot.classList.add("off");
     headerDot.classList.add("off");
     txt.textContent = "Offline — ändringar synkas när nätet är tillbaka";
+    headerLabel.textContent = "Ej ansluten";
   }
 }
 window.addEventListener("online", updateNetStatus);
