@@ -8,7 +8,7 @@
 <style>
   :root{
     --bg:#f3efe4; --bg-alt:#e9e2d0; --surface:#fffdf9; --ink:#2b2620; --ink-soft:#7a7061;
-    --accent:#2e6f77; --accent-ink:#ffffff; --stamp:#a3432f; --line:#d8cfba;
+    --accent:#2e6f77; --accent-ink:#ffffff; --stamp:#a3432f; --line:#d8cfba; --done:#3f7d4a;
     --shadow:0 1px 2px rgba(43,38,32,.08), 0 4px 14px rgba(43,38,32,.06);
     --radius:10px; --font-display:Georgia,'Iowan Old Style','Palatino Linotype',serif;
     --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -16,7 +16,7 @@
   }
   [data-theme="dark"]{
     --bg:#12171b; --bg-alt:#1a2126; --surface:#182027; --ink:#e7e2d3; --ink-soft:#8fa0a3;
-    --accent:#4fb3ba; --accent-ink:#0c1417; --stamp:#d16a4e; --line:#2a343a;
+    --accent:#4fb3ba; --accent-ink:#0c1417; --stamp:#d16a4e; --line:#2a343a; --done:#6fcf7d;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box;}
@@ -39,7 +39,8 @@
     cursor:pointer; font-size:15px; line-height:1;
   }
   .icon-btn:active{transform:translateY(1px);}
-  main{flex:1; max-width:640px; width:100%; margin:0 auto; padding:16px 16px 12px;}
+  .app-layout{flex:1; display:flex; flex-direction:column; width:100%;}
+  main{flex:1; max-width:640px; width:100%; margin:0 auto; padding:16px 16px 24px;}
   .card{
     background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
     box-shadow:var(--shadow); padding:16px;
@@ -78,10 +79,10 @@
     padding:10px 14px; background:none; border:1px solid var(--line); color:var(--ink); border-radius:8px;
     cursor:pointer; font-size:14px; font-family:var(--font-body);
   }
-  /* Tabs */
+  /* Tabs: stående = bar direkt ovanför innehållet, liggande = spalt direkt till vänster */
   nav.tabbar{
-    position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--line);
-    display:flex; padding:6px 10px calc(6px + env(safe-area-inset-bottom)); z-index:50;
+    background:var(--surface); border-bottom:1px solid var(--line);
+    display:flex; padding:6px 10px;
   }
   nav.tabbar button{
     flex:1; background:none; border:none; color:var(--ink-soft); font-family:var(--font-body);
@@ -89,12 +90,22 @@
   }
   nav.tabbar button .ic{font-size:19px;}
   nav.tabbar button.active{color:var(--accent); font-weight:700;}
+  @media (orientation:landscape){
+    .app-layout{flex-direction:row;}
+    nav.tabbar{
+      flex-direction:column; border-bottom:none; border-right:1px solid var(--line);
+      width:92px; flex:none; padding:16px 6px; gap:6px;
+    }
+    nav.tabbar button{flex:none; padding:12px 4px;}
+  }
   .tabpanel{display:none;}
   .tabpanel.active{display:block; animation:fade .15s ease;}
   @keyframes fade{from{opacity:0} to{opacity:1}}
   /* Visa - filters */
-  .filters{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
-  .filters select{width:auto; flex:1; min-width:120px; font-size:13px; padding:8px 26px 8px 10px;}
+  .filters{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  .filter-group{flex:1; min-width:130px;}
+  .filter-group label{font-size:11px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.4px;}
+  .filters select{width:100%; font-size:13px; padding:8px 26px 8px 10px;}
   .subject-group{margin-bottom:22px;}
   .subject-group h3{
     font-family:var(--font-display); font-size:16px; margin:0 0 8px; color:var(--accent);
@@ -109,6 +120,13 @@
   .done-checkbox{
     width:20px; height:20px; flex:none; margin-top:2px; accent-color:var(--stamp); cursor:pointer;
   }
+  .entry-icon{width:20px; flex:none; text-align:center; color:var(--ink-soft); margin-top:1px;}
+  .todo-dates{
+    display:flex; align-items:center; gap:8px; flex:none; margin-left:4px; margin-top:2px;
+    font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); white-space:nowrap;
+  }
+  .todo-dates .added-date.done{color:var(--done);}
+  .todo-dates .done-date{color:var(--done);}
   .entry-body{flex:1; min-width:0;}
   .entry-text{font-size:15px; line-height:1.35; word-break:break-word;}
   .entry-text.done{text-decoration:line-through; color:var(--ink-soft);}
@@ -123,7 +141,7 @@
   .kv:last-child{border-bottom:none;}
   .kv b{font-family:var(--font-mono); font-weight:600;}
   footer{
-    text-align:center; font-size:12px; color:var(--ink-soft); padding:0 10px calc(66px + env(safe-area-inset-bottom));
+    text-align:center; font-size:12px; color:var(--ink-soft); padding:8px 10px calc(10px + env(safe-area-inset-bottom));
     max-width:640px; margin:0 auto; width:100%;
   }
   /* Overlay (setup + modals) */
@@ -160,23 +178,30 @@
   </div>
 </header>
 
+<div class="app-layout">
+<nav class="tabbar">
+  <button data-tab="skriv" class="active"><span class="ic">✎</span>Skriv</button>
+  <button data-tab="visa"><span class="ic">☰</span>Visa</button>
+  <button data-tab="synk"><span class="ic">⇄</span>Synkronisera</button>
+</nav>
+
 <main>
 
   <!-- SKRIV -->
   <section class="tabpanel active" id="tab-skriv">
     <div class="card">
-      <h2 class="section-title">Ny anteckning</h2>
+      <h2 class="section-title" id="formTitle">Ny anteckning</h2>
 
-      <label for="inSubject">Ämne</label>
+      <div class="chip-toggle">
+        <button type="button" class="type-btn active" data-type="note">Anteckning</button>
+        <button type="button" class="type-btn" data-type="todo">2do-list</button>
+      </div>
+
+      <label for="inSubject" style="margin-top:16px;">Ämne</label>
       <select id="inSubject"></select>
       <div class="subject-add-row" id="newSubjectRow" style="display:none;">
         <input type="text" id="newSubjectName" placeholder="Namn på nytt ämne">
         <button class="btn-secondary" id="newSubjectConfirm">Lägg till</button>
-      </div>
-
-      <div class="chip-toggle">
-        <button type="button" class="type-btn active" data-type="task">✓ Task</button>
-        <button type="button" class="type-btn" data-type="note">✎ Anteckning</button>
       </div>
 
       <label for="inSubcat">Undergrupp (valfritt)</label>
@@ -187,7 +212,7 @@
       </div>
 
       <label for="inText">Text</label>
-      <textarea id="inText" placeholder="Skriv här..."></textarea>
+      <textarea id="inText" placeholder="Skriv här..." style="min-height:130px;"></textarea>
 
       <label for="inDate">Datum</label>
       <input type="date" id="inDate">
@@ -204,13 +229,34 @@
   <section class="tabpanel" id="tab-visa">
     <div class="card">
       <h2 class="section-title">Översikt</h2>
+      <div class="chip-toggle" style="margin-top:0; margin-bottom:14px;">
+        <button type="button" class="viewtype-btn active" data-viewtype="note">Anteckningar</button>
+        <button type="button" class="viewtype-btn" data-viewtype="todo">2do-list</button>
+      </div>
+
+      <label for="searchInput" style="margin-top:0;">Sök</label>
+      <input type="text" id="searchInput" placeholder="Sök i texten...">
+
       <div class="filters">
-        <select id="filterSubject"><option value="">Alla ämnen</option></select>
-        <select id="filterStatus">
-          <option value="alla">Alla</option>
-          <option value="oklara" selected>Ej klara</option>
-          <option value="klara">Klara</option>
-        </select>
+        <div class="filter-group">
+          <label for="filterSubject">Ämne</label>
+          <select id="filterSubject"><option value="">Alla ämnen</option></select>
+        </div>
+        <div class="filter-group" id="statusGroup" style="display:none;">
+          <label for="filterStatus">Status</label>
+          <select id="filterStatus">
+            <option value="alla">Alla</option>
+            <option value="oklara" selected>Ej klara</option>
+            <option value="klara">Klara</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="viewMode">Sortering</label>
+          <select id="viewMode">
+            <option value="subcat" selected>Undergrupper</option>
+            <option value="edited">Senast redigerad</option>
+          </select>
+        </div>
       </div>
       <div id="entriesRoot"><div class="empty">Inga anteckningar än.</div></div>
     </div>
@@ -226,7 +272,7 @@
       </div>
       <div class="kv"><span>Grupp-ID</span><b id="wsIdShort">–</b></div>
       <div class="kv"><span>Ämnen</span><b id="statSubjects">0</b></div>
-      <div class="kv"><span>Anteckningar/tasks</span><b id="statItems">0</b></div>
+      <div class="kv"><span>Anteckningar/2do-poster</span><b id="statItems">0</b></div>
       <div class="kv"><span>Enhet</span><b id="deviceLabel">–</b></div>
       <button class="btn-secondary" id="shareGroupBtn" style="margin-top:16px; width:100%;">Visa kod för att koppla ny enhet</button>
       <button class="btn-secondary" id="leaveGroupBtn" style="margin-top:10px; width:100%; color:var(--stamp); border-color:var(--stamp);">Byt grupp / logga ut</button>
@@ -234,12 +280,7 @@
   </section>
 
 </main>
-
-<nav class="tabbar">
-  <button data-tab="skriv" class="active"><span class="ic">✎</span>Skriv</button>
-  <button data-tab="visa"><span class="ic">☰</span>Visa</button>
-  <button data-tab="synk"><span class="ic">⇄</span>Synkronisera</button>
-</nav>
+</div>
 
 <footer>© <span id="yearNow">2026</span> Per Andersson</footer>
 
@@ -2580,7 +2621,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.05";
+const APP_VERSION = "1.08";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2623,8 +2664,24 @@ function todayLocal(){
 }
 function fmtDate(iso){
   if(!iso) return "Inget datum";
-  const [y,m,d] = iso.split("-");
-  return `${d}/${m} ${y}`;
+  return fmtDateShort(iso);
+}
+function fmtDateShort(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-").map(Number);
+  const dateObj = new Date(y, m-1, d);
+  const now = new Date();
+  const oneYearAgo = new Date(now.getFullYear()-1, now.getMonth(), now.getDate());
+  let s = `${d}/${m}`;
+  if(dateObj < oneYearAgo){
+    s += `-${String(y).slice(-2)}`;
+  }
+  return s;
+}
+function isoFromMillis(ms){
+  const d = new Date(ms);
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off*60000).toISOString().slice(0,10);
 }
 function deviceLabel(){
   const ua = navigator.userAgent;
@@ -2834,7 +2891,14 @@ function renderSubjectSelects(){
   } else if(subjects.some(s=>s.id===prevIn)){
     inSubject.value = prevIn;
   }
-  if(subjects.some(s=>s.id===prevFilter)) filterSubject.value = prevFilter;
+  if(pendingFilterSubjectId !== null){
+    if(pendingFilterSubjectId === "" || subjects.some(s=>s.id===pendingFilterSubjectId)){
+      filterSubject.value = pendingFilterSubjectId;
+    }
+    pendingFilterSubjectId = null;
+  } else if(subjects.some(s=>s.id===prevFilter)){
+    filterSubject.value = prevFilter;
+  }
   syncNewSubjectRow();
   renderSubcatSelect();
 }
@@ -2853,12 +2917,13 @@ async function deleteSubject(id, name){
 }
 
 /* ---------- Skriv: type toggle + date ---------- */
-let selectedType = "task";
+let selectedType = "note";
 document.querySelectorAll(".type-btn").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     document.querySelectorAll(".type-btn").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     selectedType = btn.dataset.type;
+    document.getElementById("formTitle").textContent = selectedType === "todo" ? "Ny 2do-post" : "Ny anteckning";
   });
 });
 const inDate = document.getElementById("inDate");
@@ -2889,7 +2954,7 @@ document.getElementById("saveBtn").addEventListener("click", async ()=>{
   }
   const dateVal = inNoDate.checked ? null : inDate.value;
   await addDoc(collection(db,"workspaces",wsId,"items"), {
-    subjectId, type: selectedType, text, date: dateVal, done: false, subcatId,
+    subjectId, type: selectedType, text, date: dateVal, done: false, doneDate: null, subcatId,
     createdAt: serverTimestamp(), updatedAt: serverTimestamp()
   });
   document.getElementById("inText").value = "";
@@ -2900,8 +2965,43 @@ document.getElementById("saveBtn").addEventListener("click", async ()=>{
 });
 
 /* ---------- Visa: render entries ---------- */
-filterSubject.addEventListener("change", renderEntries);
-document.getElementById("filterStatus").addEventListener("change", renderEntries);
+let viewType = "note";
+let pendingFilterSubjectId = null;
+
+function saveViewPrefs(){
+  localStorage.setItem("loggbok-viewprefs", JSON.stringify({
+    viewType,
+    filterSubject: filterSubject.value,
+    filterStatus: document.getElementById("filterStatus").value,
+    viewMode: document.getElementById("viewMode").value
+  }));
+}
+function loadViewPrefs(){
+  const saved = JSON.parse(localStorage.getItem("loggbok-viewprefs") || "null");
+  if(!saved) return;
+  viewType = saved.viewType === "todo" ? "todo" : "note";
+  document.querySelectorAll(".viewtype-btn").forEach(b=>b.classList.toggle("active", b.dataset.viewtype===viewType));
+  document.getElementById("statusGroup").style.display = viewType === "todo" ? "" : "none";
+  if(saved.filterStatus) document.getElementById("filterStatus").value = saved.filterStatus;
+  if(saved.viewMode) document.getElementById("viewMode").value = saved.viewMode;
+  pendingFilterSubjectId = typeof saved.filterSubject === "string" ? saved.filterSubject : null;
+}
+loadViewPrefs();
+
+document.querySelectorAll(".viewtype-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".viewtype-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    viewType = btn.dataset.viewtype;
+    document.getElementById("statusGroup").style.display = viewType === "todo" ? "" : "none";
+    saveViewPrefs();
+    renderEntries();
+  });
+});
+filterSubject.addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
+document.getElementById("filterStatus").addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
+document.getElementById("viewMode").addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
+document.getElementById("searchInput").addEventListener("input", renderEntries);
 
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -2916,16 +3016,31 @@ function sortItemsForDisplay(list){
     return 0; // båda utan datum: behåll ordningen från Firestore (redan nyast-skapad-först)
   });
 }
+function sortByEdited(list){
+  return [...list].sort((a,b)=> millisOf(b.updatedAt) - millisOf(a.updatedAt));
+}
 
 function renderEntries(){
   const root = document.getElementById("entriesRoot");
   const subFilter = filterSubject.value;
   const statusFilter = document.getElementById("filterStatus").value;
+  const viewMode = document.getElementById("viewMode").value;
+  const searchTerm = document.getElementById("searchInput").value.trim().toLowerCase();
+  const searchWords = searchTerm.length ? searchTerm.split(/\s+/) : [];
 
   let filtered = items.filter(it=>{
+    const isTodoItem = it.type === "todo";
+    if(viewType === "todo" && !isTodoItem) return false;
+    if(viewType === "note" && isTodoItem) return false;
     if(subFilter && it.subjectId !== subFilter) return false;
-    if(statusFilter === "klara" && !it.done) return false;
-    if(statusFilter === "oklara" && it.done && it.type==="task") return false;
+    if(viewType === "todo"){
+      if(statusFilter === "klara" && !it.done) return false;
+      if(statusFilter === "oklara" && it.done) return false;
+    }
+    if(searchWords.length){
+      const textLower = (it.text || "").toLowerCase();
+      if(!searchWords.every(w=>textLower.includes(w))) return false;
+    }
     return true;
   });
 
@@ -2955,6 +3070,9 @@ function renderEntries(){
 
     if(groupItems.length === 0){
       html += `<li class="entry"><span class="empty" style="padding:8px 0;">Inga anteckningar i detta ämne.</span></li>`;
+    } else if(viewMode === "edited"){
+      // Platt lista, sorterad efter senast redigerad, ingen undergruppsindelning
+      html += renderEntryItems(sortByEdited(groupItems));
     } else {
       // Gruppera per undergrupp; poster utan undergrupp visas först, osparat
       const bySubcat = {};
@@ -2983,13 +3101,24 @@ function renderEntries(){
 
   function renderEntryItems(list){
     return list.map(it=>{
-      const isTask = it.type === "task";
+      const isTodo = it.type === "todo";
+      const leading = isTodo
+        ? `<input type="checkbox" class="done-checkbox" data-toggle="${it.id}" ${it.done?"checked":""}>`
+        : `<span class="entry-icon">✎</span>`;
+      const addedDate = fmtDateShort(isoFromMillis(millisOf(it.createdAt)));
+      const todoDates = isTodo
+        ? `<div class="todo-dates">
+             <span class="added-date ${it.done?"done":""}">${addedDate}</span>
+             ${it.doneDate ? `<span class="done-date">${fmtDateShort(it.doneDate)}</span>` : ""}
+           </div>`
+        : "";
       return `<li class="entry">
-        ${isTask ? `<input type="checkbox" class="done-checkbox" data-toggle="${it.id}" ${it.done?"checked":""}>` : `<span style="width:20px;flex:none;text-align:center;color:var(--ink-soft);">✎</span>`}
+        ${leading}
         <div class="entry-body">
           <div class="entry-text ${it.done?"done":""}">${escapeHtml(it.text)}</div>
           <div class="entry-date">${fmtDate(it.date)}</div>
         </div>
+        ${todoDates}
         <button class="entry-del" data-del="${it.id}">🗑</button>
       </li>`;
     }).join("");
@@ -2997,7 +3126,9 @@ function renderEntries(){
 
   root.querySelectorAll("[data-toggle]").forEach(cb=>{
     cb.addEventListener("change", async ()=>{
-      await updateDoc(doc(db,"workspaces",wsId,"items",cb.dataset.toggle), {done: cb.checked, updatedAt: serverTimestamp()});
+      await updateDoc(doc(db,"workspaces",wsId,"items",cb.dataset.toggle), {
+        done: cb.checked, doneDate: cb.checked ? todayLocal() : null, updatedAt: serverTimestamp()
+      });
     });
   });
   root.querySelectorAll("[data-del]").forEach(btn=>{
