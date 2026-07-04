@@ -128,10 +128,11 @@
   .todo-dates .added-date.done{color:var(--done);}
   .todo-dates .done-date{color:var(--done);}
   .entry-body{flex:1; min-width:0;}
-  .entry-text{font-size:15px; line-height:1.35; word-break:break-word;}
+  .entry-text{font-size:15px; line-height:1.35; word-break:break-word; white-space:pre-wrap;}
   .entry-text.done{text-decoration:line-through; color:var(--ink-soft);}
   .entry-date{font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); margin-top:3px;}
   .entry-del{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:16px; padding:4px;}
+  .entry-edit{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:14px; padding:4px;}
   .empty{color:var(--ink-soft); font-size:14px; text-align:center; padding:30px 10px; font-style:italic;}
   /* Sync tab */
   .status-row{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
@@ -242,6 +243,10 @@
           <label for="filterSubject">Ämne</label>
           <select id="filterSubject"><option value="">Alla ämnen</option></select>
         </div>
+        <div class="filter-group">
+          <label for="filterSubcat">Undergrupp</label>
+          <select id="filterSubcat"><option value="">Alla undergrupper</option></select>
+        </div>
         <div class="filter-group" id="statusGroup" style="display:none;">
           <label for="filterStatus">Status</label>
           <select id="filterStatus">
@@ -296,6 +301,37 @@
     <label for="setupPin">PIN</label>
     <input type="password" id="setupPin" inputmode="numeric" placeholder="siffror eller bokstäver">
     <button class="btn-primary" id="setupConfirm">Anslut</button>
+  </div>
+</div>
+
+<!-- REDIGERA -->
+<div class="overlay" id="editOverlay" style="display:none;">
+  <div class="card">
+    <button class="modal-close" id="editClose">✕</button>
+    <h2>Redigera post</h2>
+
+    <div class="chip-toggle">
+      <button type="button" class="edit-type-btn active" data-type="note">Anteckning</button>
+      <button type="button" class="edit-type-btn" data-type="todo">2do-list</button>
+    </div>
+
+    <label for="editSubject">Ämne</label>
+    <select id="editSubject"></select>
+
+    <label for="editSubcat">Undergrupp (valfritt)</label>
+    <select id="editSubcat"><option value="">Ingen undergrupp</option></select>
+
+    <label for="editText">Text</label>
+    <textarea id="editText" style="min-height:130px;"></textarea>
+
+    <label for="editDate">Datum</label>
+    <input type="date" id="editDate">
+    <div class="checkline">
+      <input type="checkbox" id="editNoDate">
+      <label for="editNoDate" style="margin:0; font-weight:400;">Inget datum</label>
+    </div>
+
+    <button class="btn-primary" id="editSaveBtn">Spara ändringar</button>
   </div>
 </div>
 
@@ -2621,7 +2657,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.08";
+const APP_VERSION = "1.11";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2782,6 +2818,7 @@ function startWorkspaceListeners(){
   unsubSubjects = onSnapshot(query(subjectsCol, orderBy("createdAt","asc")), snap=>{
     subjects = snap.docs.map(d=>({id:d.id, ...d.data()}));
     renderSubjectSelects();
+    renderSubcatFilter();
     renderEntries();
     document.getElementById("statSubjects").textContent = subjects.length;
   }, err=>console.error(err));
@@ -2789,6 +2826,7 @@ function startWorkspaceListeners(){
   unsubSubcats = onSnapshot(query(subcatsCol, orderBy("createdAt","asc")), snap=>{
     subcats = snap.docs.map(d=>({id:d.id, ...d.data()}));
     renderSubcatSelect();
+    renderSubcatFilter();
     renderEntries();
   }, err=>console.error(err));
 
@@ -2967,11 +3005,14 @@ document.getElementById("saveBtn").addEventListener("click", async ()=>{
 /* ---------- Visa: render entries ---------- */
 let viewType = "note";
 let pendingFilterSubjectId = null;
+let pendingFilterSubcatId = null;
+const filterSubcat = document.getElementById("filterSubcat");
 
 function saveViewPrefs(){
   localStorage.setItem("loggbok-viewprefs", JSON.stringify({
     viewType,
     filterSubject: filterSubject.value,
+    filterSubcat: filterSubcat.value,
     filterStatus: document.getElementById("filterStatus").value,
     viewMode: document.getElementById("viewMode").value
   }));
@@ -2985,8 +3026,34 @@ function loadViewPrefs(){
   if(saved.filterStatus) document.getElementById("filterStatus").value = saved.filterStatus;
   if(saved.viewMode) document.getElementById("viewMode").value = saved.viewMode;
   pendingFilterSubjectId = typeof saved.filterSubject === "string" ? saved.filterSubject : null;
+  pendingFilterSubcatId = typeof saved.filterSubcat === "string" ? saved.filterSubcat : null;
 }
 loadViewPrefs();
+
+function renderSubcatFilter(){
+  const subjectId = filterSubject.value;
+  const relevant = subjectId
+    ? subcats.filter(sc=>sc.subjectId===subjectId).sort((a,b)=>a.name.localeCompare(b.name,"sv"))
+    : subcats.slice().sort((a,b)=>{
+        const subjA = subjects.find(s=>s.id===a.subjectId)?.name || "";
+        const subjB = subjects.find(s=>s.id===b.subjectId)?.name || "";
+        return subjA.localeCompare(subjB,"sv") || a.name.localeCompare(b.name,"sv");
+      });
+  const prev = filterSubcat.value;
+  const labelFor = sc => subjectId ? escapeHtml(sc.name) : `${escapeHtml(sc.name)} (${escapeHtml(subjects.find(s=>s.id===sc.subjectId)?.name || "?")})`;
+  filterSubcat.innerHTML = `<option value="">Alla undergrupper</option><option value="__none__">Utan undergrupp</option>`
+    + relevant.map(sc=>`<option value="${sc.id}">${labelFor(sc)}</option>`).join("");
+  if(pendingFilterSubcatId !== null){
+    if(pendingFilterSubcatId === "" || pendingFilterSubcatId === "__none__" || relevant.some(sc=>sc.id===pendingFilterSubcatId)){
+      filterSubcat.value = pendingFilterSubcatId;
+    }
+    pendingFilterSubcatId = null;
+  } else if(prev === "__none__" || relevant.some(sc=>sc.id===prev)){
+    filterSubcat.value = prev;
+  } else {
+    filterSubcat.value = "";
+  }
+}
 
 document.querySelectorAll(".viewtype-btn").forEach(btn=>{
   btn.addEventListener("click", ()=>{
@@ -2998,7 +3065,8 @@ document.querySelectorAll(".viewtype-btn").forEach(btn=>{
     renderEntries();
   });
 });
-filterSubject.addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
+filterSubject.addEventListener("change", ()=>{ renderSubcatFilter(); saveViewPrefs(); renderEntries(); });
+filterSubcat.addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
 document.getElementById("filterStatus").addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
 document.getElementById("viewMode").addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
 document.getElementById("searchInput").addEventListener("input", renderEntries);
@@ -3023,6 +3091,7 @@ function sortByEdited(list){
 function renderEntries(){
   const root = document.getElementById("entriesRoot");
   const subFilter = filterSubject.value;
+  const subcatFilterVal = filterSubcat.value;
   const statusFilter = document.getElementById("filterStatus").value;
   const viewMode = document.getElementById("viewMode").value;
   const searchTerm = document.getElementById("searchInput").value.trim().toLowerCase();
@@ -3033,6 +3102,8 @@ function renderEntries(){
     if(viewType === "todo" && !isTodoItem) return false;
     if(viewType === "note" && isTodoItem) return false;
     if(subFilter && it.subjectId !== subFilter) return false;
+    if(subcatFilterVal === "__none__" && it.subcatId) return false;
+    if(subcatFilterVal && subcatFilterVal !== "__none__" && it.subcatId !== subcatFilterVal) return false;
     if(viewType === "todo"){
       if(statusFilter === "klara" && !it.done) return false;
       if(statusFilter === "oklara" && it.done) return false;
@@ -3119,6 +3190,7 @@ function renderEntries(){
           <div class="entry-date">${fmtDate(it.date)}</div>
         </div>
         ${todoDates}
+        <button class="entry-edit" data-edit="${it.id}">✏️</button>
         <button class="entry-del" data-del="${it.id}">🗑</button>
       </li>`;
     }).join("");
@@ -3135,6 +3207,12 @@ function renderEntries(){
     btn.addEventListener("click", async ()=>{
       if(!confirm("Ta bort denna post?")) return;
       await deleteDoc(doc(db,"workspaces",wsId,"items",btn.dataset.del));
+    });
+  });
+  root.querySelectorAll("[data-edit]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const it = items.find(i=>i.id===btn.dataset.edit);
+      if(it) openEditModal(it);
     });
   });
   root.querySelectorAll("[data-delsub]").forEach(el=>{
@@ -3163,6 +3241,69 @@ function updateNetStatus(){
 window.addEventListener("online", updateNetStatus);
 window.addEventListener("offline", updateNetStatus);
 updateNetStatus();
+
+/* ---------- Redigera post ---------- */
+let editingItemId = null;
+let editSelectedType = "note";
+const editOverlay = document.getElementById("editOverlay");
+const editSubject = document.getElementById("editSubject");
+const editSubcat = document.getElementById("editSubcat");
+const editDate = document.getElementById("editDate");
+const editNoDate = document.getElementById("editNoDate");
+
+document.querySelectorAll(".edit-type-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".edit-type-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    editSelectedType = btn.dataset.type;
+  });
+});
+function renderEditSubcatOptions(){
+  const subjectId = editSubject.value;
+  const relevant = subcats.filter(sc=>sc.subjectId===subjectId).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
+  editSubcat.innerHTML = `<option value="">Ingen undergrupp</option>` + relevant.map(sc=>`<option value="${sc.id}">${escapeHtml(sc.name)}</option>`).join("");
+}
+editSubject.addEventListener("change", renderEditSubcatOptions);
+
+function openEditModal(it){
+  editingItemId = it.id;
+  editSelectedType = it.type === "todo" ? "todo" : "note";
+  document.querySelectorAll(".edit-type-btn").forEach(b=>b.classList.toggle("active", b.dataset.type===editSelectedType));
+  editSubject.innerHTML = getOrderedSubjects().map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+  editSubject.value = it.subjectId;
+  renderEditSubcatOptions();
+  editSubcat.value = it.subcatId || "";
+  document.getElementById("editText").value = it.text || "";
+  if(it.date){
+    editDate.value = it.date; editDate.disabled = false; editNoDate.checked = false;
+  } else {
+    editDate.value = todayLocal(); editDate.disabled = true; editNoDate.checked = true;
+  }
+  editOverlay.style.display = "flex";
+}
+document.getElementById("editClose").addEventListener("click", ()=>{ editOverlay.style.display = "none"; });
+editOverlay.addEventListener("click", e=>{ if(e.target===editOverlay) editOverlay.style.display = "none"; });
+editNoDate.addEventListener("change", ()=>{ editDate.disabled = editNoDate.checked; });
+
+document.getElementById("editSaveBtn").addEventListener("click", async ()=>{
+  if(!editingItemId) return;
+  const text = document.getElementById("editText").value.trim();
+  if(!text){ toast("Skriv någon text"); return; }
+  const subjectId = editSubject.value;
+  const subcatId = editSubcat.value || null;
+  const dateVal = editNoDate.checked ? null : editDate.value;
+  const patch = {
+    type: editSelectedType, subjectId, subcatId, text, date: dateVal, updatedAt: serverTimestamp()
+  };
+  if(editSelectedType !== "todo"){
+    patch.done = false;
+    patch.doneDate = null;
+  }
+  await updateDoc(doc(db,"workspaces",wsId,"items",editingItemId), patch);
+  editOverlay.style.display = "none";
+  editingItemId = null;
+  toast("Ändringar sparade");
+});
 
 /* ---------- QR modal (app-delning + gruppkod) ---------- */
 const qrOverlay = document.getElementById("qrOverlay");
