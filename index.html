@@ -333,6 +333,18 @@
   </div>
 </div>
 
+<!-- PIN-BEKRÄFTELSE (för enheter som anslöt innan kryptering fanns) -->
+<div class="overlay" id="pinPromptOverlay" style="display:none;">
+  <div class="card">
+    <h2>Ange PIN igen</h2>
+    <p class="hint">Anteckningarna är nu krypterade. Skriv din PIN en gång till på den här enheten, så låses den upp automatiskt igen härefter.</p>
+    <label for="pinPromptInput">PIN</label>
+    <input type="password" id="pinPromptInput" inputmode="numeric" placeholder="siffror eller bokstäver">
+    <button class="btn-primary" id="pinPromptConfirm">Fortsätt</button>
+    <button class="btn-secondary" id="pinPromptForget" style="margin-top:10px; width:100%;">Byt grupp istället</button>
+  </div>
+</div>
+
 <!-- REDIGERA -->
 <div class="overlay" id="editOverlay" style="display:none;">
   <div class="card">
@@ -2686,7 +2698,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.13";
+const APP_VERSION = "1.1.00";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2721,6 +2733,61 @@ function toast(msg){
 async function sha256Hex(str){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+/* ---------- Kryptering (AES-GCM, nyckel härledd från Kod+PIN, aldrig delad med Firebase) ---------- */
+const ENC_PREFIX = "encv1:";
+let cachedEncKey; // undefined = ej försökt, null = ej tillgänglig, CryptoKey = klar
+
+function bufToB64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function b64ToBuf(b64){ return Uint8Array.from(atob(b64), c=>c.charCodeAt(0)); }
+
+async function deriveEncKey(kod, pin, forWsId){
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    "raw", enc.encode(kod.trim().toLowerCase() + "::" + pin.trim()),
+    "PBKDF2", false, ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: enc.encode("loggbok-enc-" + forWsId), iterations: 100000, hash: "SHA-256" },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+async function getEncKey(){
+  if(cachedEncKey !== undefined) return cachedEncKey;
+  const saved = JSON.parse(localStorage.getItem("loggbok-ws") || "null");
+  if(!saved || !saved.kod || !saved.pin || !saved.wsId){
+    cachedEncKey = null;
+  } else {
+    cachedEncKey = await deriveEncKey(saved.kod, saved.pin, saved.wsId);
+  }
+  return cachedEncKey;
+}
+async function encryptText(plain){
+  if(plain === null || plain === undefined) return plain;
+  const key = await getEncKey();
+  if(!key) return plain; // ingen nyckel tillgänglig — bör inte inträffa i normalt flöde
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, new TextEncoder().encode(plain));
+  return ENC_PREFIX + bufToB64(iv) + ":" + bufToB64(ciphertext);
+}
+async function decryptText(value){
+  if(typeof value !== "string" || !value.startsWith(ENC_PREFIX)) return value; // gammal klartext eller null, orört
+  const key = await getEncKey();
+  if(!key) return "🔒 Låst (PIN saknas)";
+  try{
+    const parts = value.split(":");
+    const iv = b64ToBuf(parts[1]);
+    const ct = b64ToBuf(parts[2]);
+    const plainBuf = await crypto.subtle.decrypt({name:"AES-GCM", iv}, key, ct);
+    return new TextDecoder().decode(plainBuf);
+  }catch(err){
+    console.error("Dekrypteringsfel", err);
+    return "🔒 Kunde inte dekryptera";
+  }
 }
 function todayLocal(){
   const d = new Date();
@@ -2782,6 +2849,7 @@ document.querySelectorAll("nav.tabbar button").forEach(btn=>{
 
 /* ---------- Setup / workspace ---------- */
 const setupOverlay = document.getElementById("setupOverlay");
+const pinPromptOverlay = document.getElementById("pinPromptOverlay");
 async function computeWsId(kod, pin){
   return sha256Hex(kod.trim().toLowerCase() + "::" + pin.trim());
 }
@@ -2790,7 +2858,11 @@ async function tryLoadWorkspace(){
   if(saved && saved.wsId){
     wsId = saved.wsId;
     setupOverlay.style.display = "none";
-    startWorkspaceListeners();
+    if(!saved.pin){
+      pinPromptOverlay.style.display = "flex";
+    } else {
+      startWorkspaceListeners();
+    }
   } else {
     setupOverlay.style.display = "flex";
   }
@@ -2800,15 +2872,37 @@ document.getElementById("setupConfirm").addEventListener("click", async ()=>{
   const pin = document.getElementById("setupPin").value.trim();
   if(!kod || !pin){ toast("Fyll i både kod och PIN"); return; }
   const id = await computeWsId(kod, pin);
-  localStorage.setItem("loggbok-ws", JSON.stringify({wsId:id, kod}));
+  localStorage.setItem("loggbok-ws", JSON.stringify({wsId:id, kod, pin}));
+  cachedEncKey = undefined;
   wsId = id;
   setupOverlay.style.display = "none";
   startWorkspaceListeners();
   toast("Ansluten!");
 });
+document.getElementById("pinPromptConfirm").addEventListener("click", async ()=>{
+  const saved = JSON.parse(localStorage.getItem("loggbok-ws") || "null");
+  const pin = document.getElementById("pinPromptInput").value.trim();
+  if(!saved || !pin) return;
+  const check = await computeWsId(saved.kod, pin);
+  if(check !== saved.wsId){ toast("Fel PIN, försök igen"); return; }
+  saved.pin = pin;
+  localStorage.setItem("loggbok-ws", JSON.stringify(saved));
+  cachedEncKey = undefined;
+  document.getElementById("pinPromptInput").value = "";
+  pinPromptOverlay.style.display = "none";
+  startWorkspaceListeners();
+  toast("Upplåst!");
+});
+document.getElementById("pinPromptForget").addEventListener("click", ()=>{
+  if(!confirm("Byta grupp? Du kopplas bort från nuvarande grupp (datan finns kvar i molnet).")) return;
+  localStorage.removeItem("loggbok-ws");
+  pinPromptOverlay.style.display = "none";
+  setupOverlay.style.display = "flex";
+});
 document.getElementById("leaveGroupBtn").addEventListener("click", ()=>{
   if(!confirm("Byta grupp? Du kopplas bort från nuvarande grupp (datan finns kvar i molnet).")) return;
   localStorage.removeItem("loggbok-ws");
+  cachedEncKey = undefined;
   if(unsubSubjects) unsubSubjects();
   if(unsubItems) unsubItems();
   subjects = []; items = [];
@@ -2842,23 +2936,26 @@ function startWorkspaceListeners(){
   if(unsubSubcats) unsubSubcats();
   if(unsubItems) unsubItems();
 
-  unsubSubjects = onSnapshot(query(subjectsCol, orderBy("createdAt","asc")), snap=>{
-    subjects = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  unsubSubjects = onSnapshot(query(subjectsCol, orderBy("createdAt","asc")), async snap=>{
+    const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    subjects = await Promise.all(raw.map(async s=>({...s, name: await decryptText(s.name)})));
     renderSubjectSelects();
     renderSubcatFilter();
     renderEntries();
     document.getElementById("statSubjects").textContent = subjects.length;
   }, err=>console.error(err));
 
-  unsubSubcats = onSnapshot(query(subcatsCol, orderBy("createdAt","asc")), snap=>{
-    subcats = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  unsubSubcats = onSnapshot(query(subcatsCol, orderBy("createdAt","asc")), async snap=>{
+    const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    subcats = await Promise.all(raw.map(async sc=>({...sc, name: await decryptText(sc.name)})));
     renderSubcatSelect();
     renderSubcatFilter();
     renderEntries();
   }, err=>console.error(err));
 
-  unsubItems = onSnapshot(query(itemsCol, orderBy("createdAt","desc")), snap=>{
-    items = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  unsubItems = onSnapshot(query(itemsCol, orderBy("createdAt","desc")), async snap=>{
+    const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    items = await Promise.all(raw.map(async it=>({...it, text: await decryptText(it.text)})));
     renderEntries();
     document.getElementById("statItems").textContent = items.length;
   }, err=>console.error(err));
@@ -2900,7 +2997,7 @@ document.getElementById("newSubcatConfirm").addEventListener("click", async ()=>
   if(!subjectId || subjectId === "__new__"){ toast("Välj eller skapa ett ämne först"); return; }
   const name = document.getElementById("newSubcatName").value.trim();
   if(!name) return;
-  const ref = await addDoc(collection(db,"workspaces",wsId,"subcats"), {subjectId, name, createdAt: serverTimestamp()});
+  const ref = await addDoc(collection(db,"workspaces",wsId,"subcats"), {subjectId, name: await encryptText(name), createdAt: serverTimestamp()});
   pendingSelectSubcatId = ref.id;
   document.getElementById("newSubcatName").value = "";
   document.getElementById("newSubcatRow").style.display = "none";
@@ -2910,7 +3007,7 @@ let pendingSelectSubjectId = null;
 document.getElementById("newSubjectConfirm").addEventListener("click", async ()=>{
   const name = document.getElementById("newSubjectName").value.trim();
   if(!name) return;
-  const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name, createdAt: serverTimestamp()});
+  const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name: await encryptText(name), createdAt: serverTimestamp()});
   pendingSelectSubjectId = ref.id;
   document.getElementById("newSubjectName").value = "";
   document.getElementById("newSubjectRow").style.display = "none";
@@ -3006,7 +3103,7 @@ document.getElementById("saveBtn").addEventListener("click", async ()=>{
   if(!subjectId || subjectId === "__new__"){
     const name = document.getElementById("newSubjectName").value.trim();
     if(!name){ toast("Välj eller skapa ett ämne"); return; }
-    const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name, createdAt: serverTimestamp()});
+    const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name: await encryptText(name), createdAt: serverTimestamp()});
     subjectId = ref.id;
     pendingSelectSubjectId = ref.id;
   }
@@ -3014,12 +3111,12 @@ document.getElementById("saveBtn").addEventListener("click", async ()=>{
   if(subcatId === "__new__"){
     const scName = document.getElementById("newSubcatName").value.trim();
     if(!scName){ toast("Skriv ett namn på undergruppen, eller välj \"Ingen undergrupp\""); return; }
-    const scRef = await addDoc(collection(db,"workspaces",wsId,"subcats"), {subjectId, name: scName, createdAt: serverTimestamp()});
+    const scRef = await addDoc(collection(db,"workspaces",wsId,"subcats"), {subjectId, name: await encryptText(scName), createdAt: serverTimestamp()});
     subcatId = scRef.id;
   }
   const dateVal = inNoDate.checked ? null : inDate.value;
   await addDoc(collection(db,"workspaces",wsId,"items"), {
-    subjectId, type: selectedType, text, date: dateVal, done: false, doneDate: null, subcatId,
+    subjectId, type: selectedType, text: await encryptText(text), date: dateVal, done: false, doneDate: null, subcatId,
     createdAt: serverTimestamp(), updatedAt: serverTimestamp()
   });
   document.getElementById("inText").value = "";
@@ -3334,7 +3431,7 @@ document.getElementById("editSaveBtn").addEventListener("click", async ()=>{
   const subcatId = editSubcat.value || null;
   const dateVal = editNoDate.checked ? null : editDate.value;
   const patch = {
-    type: editSelectedType, subjectId, subcatId, text, date: dateVal, updatedAt: serverTimestamp()
+    type: editSelectedType, subjectId, subcatId, text: await encryptText(text), date: dateVal, updatedAt: serverTimestamp()
   };
   if(editSelectedType !== "todo"){
     patch.done = false;
