@@ -2749,7 +2749,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.1.02";
+const APP_VERSION = "1.1.03";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2994,6 +2994,7 @@ signInAnonymously(auth).catch(err=>{
 
 /* ---------- Firestore listeners ---------- */
 function startWorkspaceListeners(){
+  subjectsLoadedOnce = false; subcatsLoadedOnce = false; itemsLoadedOnce = false;
   const subjectsCol = collection(db, "workspaces", wsId, "subjects");
   const subcatsCol = collection(db, "workspaces", wsId, "subcats");
   const itemsCol = collection(db, "workspaces", wsId, "items");
@@ -3009,6 +3010,8 @@ function startWorkspaceListeners(){
     renderSubcatFilter();
     renderEntries();
     document.getElementById("statSubjects").textContent = subjects.length;
+    subjectsLoadedOnce = true;
+    maybeRunSubjectTypeMigration();
   }, err=>console.error(err));
 
   unsubSubcats = onSnapshot(query(subcatsCol, orderBy("createdAt","asc")), async snap=>{
@@ -3017,6 +3020,8 @@ function startWorkspaceListeners(){
     renderSubcatSelect();
     renderSubcatFilter();
     renderEntries();
+    subcatsLoadedOnce = true;
+    maybeRunSubjectTypeMigration();
   }, err=>console.error(err));
 
   unsubItems = onSnapshot(query(itemsCol, orderBy("createdAt","desc")), async snap=>{
@@ -3024,7 +3029,68 @@ function startWorkspaceListeners(){
     items = await Promise.all(raw.map(async it=>({...it, text: await decryptText(it.text)})));
     renderEntries();
     document.getElementById("statItems").textContent = items.length;
+    itemsLoadedOnce = true;
+    maybeRunSubjectTypeMigration();
   }, err=>console.error(err));
+}
+
+/* ---------- Migrering: äldre ämnen (utan typ) sorteras in under Anteckning/2do-list ---------- */
+let subjectsLoadedOnce = false, subcatsLoadedOnce = false, itemsLoadedOnce = false;
+let isMigratingSubjectTypes = false;
+async function maybeRunSubjectTypeMigration(){
+  if(isMigratingSubjectTypes) return;
+  if(!subjectsLoadedOnce || !subcatsLoadedOnce || !itemsLoadedOnce) return;
+  const legacy = subjects.filter(s=>!s.type);
+  if(legacy.length === 0) return;
+  isMigratingSubjectTypes = true;
+  try{
+    for(const subj of legacy){
+      const subjItems = items.filter(it=>it.subjectId===subj.id);
+      const noteItems = subjItems.filter(it=>it.type!=="todo");
+      const todoItems = subjItems.filter(it=>it.type==="todo");
+      if(todoItems.length === 0){
+        // bara anteckningar (eller helt tomt) -> bli kvar som Anteckning
+        await updateDoc(doc(db,"workspaces",wsId,"subjects",subj.id), {type:"note"});
+      } else if(noteItems.length === 0){
+        // bara 2do-poster -> bli 2do-list
+        await updateDoc(doc(db,"workspaces",wsId,"subjects",subj.id), {type:"todo"});
+      } else {
+        // blandat innehåll -> dela: originalet blir Anteckning, en ny kopia skapas för 2do-list
+        await updateDoc(doc(db,"workspaces",wsId,"subjects",subj.id), {type:"note"});
+        const newSubjRef = await addDoc(collection(db,"workspaces",wsId,"subjects"), {
+          name: await encryptText(subj.name), type:"todo", createdAt: subj.createdAt || serverTimestamp()
+        });
+        for(const it of todoItems){
+          await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {subjectId:newSubjRef.id});
+        }
+        // Undergrupper som hör till ämnet: flytta eller dela likadant
+        const relatedSubcats = subcats.filter(sc=>sc.subjectId===subj.id);
+        for(const sc of relatedSubcats){
+          const scNoteItems = noteItems.filter(it=>it.subcatId===sc.id);
+          const scTodoItems = todoItems.filter(it=>it.subcatId===sc.id);
+          if(scTodoItems.length === 0){
+            continue; // stannar under Anteckning-sidan (originalet), inget att göra
+          }
+          if(scNoteItems.length === 0){
+            // hela undergruppen hörde bara till 2do-poster -> flytta den
+            await updateDoc(doc(db,"workspaces",wsId,"subcats",sc.id), {subjectId:newSubjRef.id});
+          } else {
+            // blandat även i undergruppen -> dela den också
+            const newSubcatRef = await addDoc(collection(db,"workspaces",wsId,"subcats"), {
+              subjectId:newSubjRef.id, name: await encryptText(sc.name), createdAt: sc.createdAt || serverTimestamp()
+            });
+            for(const it of scTodoItems){
+              await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {subcatId:newSubcatRef.id});
+            }
+          }
+        }
+      }
+    }
+  }catch(err){
+    console.error("Migreringsfel (ämnestyper)", err);
+  }finally{
+    isMigratingSubjectTypes = false;
+  }
 }
 
 /* ---------- Subjects ---------- */
@@ -3073,7 +3139,7 @@ let pendingSelectSubjectId = null;
 document.getElementById("newSubjectConfirm").addEventListener("click", async ()=>{
   const name = document.getElementById("newSubjectName").value.trim();
   if(!name) return;
-  const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name: await encryptText(name), createdAt: serverTimestamp()});
+  const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name: await encryptText(name), type: selectedType, createdAt: serverTimestamp()});
   pendingSelectSubjectId = ref.id;
   document.getElementById("newSubjectName").value = "";
   document.getElementById("newSubjectRow").style.display = "none";
@@ -3106,19 +3172,28 @@ function getOrderedSubjects(){
   const rest = withUsage.filter(x=>!top5Ids.has(x.s.id)).sort((a,b)=>a.s.name.localeCompare(b.s.name,"sv"));
   return [...top5, ...rest].map(x=>x.s);
 }
+function getOrderedSubjectsForType(type){
+  return getOrderedSubjects().filter(s=>(s.type || "note") === type);
+}
 
 function renderSubjectSelects(){
-  const orderedSubjects = getOrderedSubjects();
-  const opts = orderedSubjects.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
-  const prevIn = inSubject.value, prevFilter = filterSubject.value;
-  inSubject.innerHTML = opts + `<option value="__new__">+ Nytt ämne...</option>`;
-  filterSubject.innerHTML = `<option value="">Alla ämnen</option>` + opts;
+  const skrivOpts = getOrderedSubjectsForType(selectedType).map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+  const prevIn = inSubject.value;
+  inSubject.innerHTML = skrivOpts + `<option value="__new__">+ Nytt ämne...</option>`;
   if(pendingSelectSubjectId && subjects.some(s=>s.id===pendingSelectSubjectId)){
     inSubject.value = pendingSelectSubjectId;
     pendingSelectSubjectId = null;
   } else if(subjects.some(s=>s.id===prevIn)){
     inSubject.value = prevIn;
   }
+  syncNewSubjectRow();
+  renderSubcatSelect();
+  renderFilterSubjectOptions();
+}
+function renderFilterSubjectOptions(){
+  const visaOpts = getOrderedSubjectsForType(viewType).map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+  const prevFilter = filterSubject.value;
+  filterSubject.innerHTML = `<option value="">Alla ämnen</option>` + visaOpts;
   if(pendingFilterSubjectId !== null){
     if(pendingFilterSubjectId === "" || subjects.some(s=>s.id===pendingFilterSubjectId)){
       filterSubject.value = pendingFilterSubjectId;
@@ -3127,8 +3202,7 @@ function renderSubjectSelects(){
   } else if(subjects.some(s=>s.id===prevFilter)){
     filterSubject.value = prevFilter;
   }
-  syncNewSubjectRow();
-  renderSubcatSelect();
+  renderSubcatFilter();
 }
 async function deleteSubject(id, name){
   const hasItems = items.some(i=>i.subjectId===id);
@@ -3152,6 +3226,7 @@ document.querySelectorAll(".type-btn").forEach(btn=>{
     btn.classList.add("active");
     selectedType = btn.dataset.type;
     document.getElementById("formTitle").textContent = selectedType === "todo" ? "Ny 2do-post" : "Ny anteckning";
+    renderSubjectSelects();
   });
 });
 const inDate = document.getElementById("inDate");
@@ -3169,7 +3244,7 @@ document.getElementById("saveBtn").addEventListener("click", async ()=>{
   if(!subjectId || subjectId === "__new__"){
     const name = document.getElementById("newSubjectName").value.trim();
     if(!name){ toast("Välj eller skapa ett ämne"); return; }
-    const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name: await encryptText(name), createdAt: serverTimestamp()});
+    const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name: await encryptText(name), type: selectedType, createdAt: serverTimestamp()});
     subjectId = ref.id;
     pendingSelectSubjectId = ref.id;
   }
@@ -3251,6 +3326,7 @@ document.querySelectorAll(".viewtype-btn").forEach(btn=>{
     btn.classList.add("active");
     viewType = btn.dataset.viewtype;
     document.getElementById("statusGroup").style.display = viewType === "todo" ? "" : "none";
+    renderFilterSubjectOptions();
     saveViewPrefs();
     renderEntries();
   });
@@ -3460,8 +3536,16 @@ document.querySelectorAll(".edit-type-btn").forEach(btn=>{
     document.querySelectorAll(".edit-type-btn").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     editSelectedType = btn.dataset.type;
+    renderEditSubjectOptions();
   });
 });
+function renderEditSubjectOptions(){
+  const prev = editSubject.value;
+  const relevant = getOrderedSubjectsForType(editSelectedType);
+  editSubject.innerHTML = relevant.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+  editSubject.value = relevant.some(s=>s.id===prev) ? prev : (relevant[0] ? relevant[0].id : "");
+  renderEditSubcatOptions();
+}
 function renderEditSubcatOptions(){
   const subjectId = editSubject.value;
   const relevant = subcats.filter(sc=>sc.subjectId===subjectId).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
@@ -3473,7 +3557,7 @@ function openEditModal(it){
   editingItemId = it.id;
   editSelectedType = it.type === "todo" ? "todo" : "note";
   document.querySelectorAll(".edit-type-btn").forEach(b=>b.classList.toggle("active", b.dataset.type===editSelectedType));
-  editSubject.innerHTML = getOrderedSubjects().map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+  renderEditSubjectOptions();
   editSubject.value = it.subjectId;
   renderEditSubcatOptions();
   editSubcat.value = it.subcatId || "";
