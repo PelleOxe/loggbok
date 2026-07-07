@@ -93,6 +93,7 @@
     border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font-body);
   }
   .btn-primary:active{transform:translateY(1px);}
+  .btn-primary.danger-btn{background:var(--stamp); color:#fff;}
   .btn-secondary{
     padding:10px 14px; background:none; border:1px solid var(--line); color:var(--ink); border-radius:8px;
     cursor:pointer; font-size:14px; font-family:var(--font-body);
@@ -128,6 +129,20 @@
     width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   }
   #searchClear:hover{background:var(--bg-alt);}
+  .quickadd-row{display:flex; gap:8px; flex-wrap:wrap; align-items:stretch; margin-top:0;}
+  .quickadd-row select{flex:0 1 130px; min-width:110px;}
+  .quickadd-row textarea{
+    flex:1 1 200px; min-height:40px; max-height:160px; resize:none; overflow-y:auto;
+    padding:10px 11px; font-family:var(--font-body); font-size:15px; border:1px solid var(--line);
+    border-radius:8px; background:var(--bg); color:var(--ink); line-height:1.3;
+  }
+  .quickadd-btn{flex:none; margin-top:0; width:auto; padding:0 18px;}
+  .link-btn{
+    background:none; border:none; color:var(--accent); font-size:13px; font-weight:600;
+    cursor:pointer; padding:8px 0; font-family:var(--font-body); display:block;
+  }
+  hr.divider{border:none; border-top:1px solid var(--line); margin:16px 0;}
+  .search-row{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
   .filters{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
   .filter-group{flex:1; min-width:130px;}
   .filter-group label{font-size:12px; margin:0 0 4px; text-transform:uppercase; letter-spacing:.4px;}
@@ -190,6 +205,72 @@
   .toast.show{opacity:1;}
   .subject-add-row{display:flex; gap:8px; margin-top:8px;}
   .subject-add-row input{flex:1;}
+
+  /* ---------- Trädvy: Ämne / Undergrupp / Notering ---------- */
+  .browser-toolbar{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
+  .browser-toolbar button{
+    background:var(--bg); border:1px solid var(--line); color:var(--ink); border-radius:8px;
+    padding:7px 10px; font-size:12.5px; font-family:var(--font-body); font-weight:600; cursor:pointer;
+    display:flex; align-items:center; gap:4px; white-space:nowrap;
+  }
+  .browser-toolbar button:disabled{opacity:.35; cursor:default;}
+  .browser-toolbar button:not(:disabled):active{transform:translateY(1px);}
+  .browser-toolbar button.danger:not(:disabled){color:var(--stamp); border-color:var(--stamp);}
+  .browser-layout{display:flex; flex-direction:column; gap:10px; min-height:0;}
+  @media (min-width:860px){
+    .browser-layout{flex-direction:row; height:66vh; min-height:420px;}
+    .pane-tree{flex:0 0 32%; max-width:340px;}
+    .pane-list{flex:1 1 68%;}
+  }
+  .pane{
+    background:var(--bg); border:1px solid var(--line); border-radius:8px; overflow-y:auto;
+    padding:6px; min-height:160px;
+  }
+  @media (min-width:860px){ .pane{height:100%;} }
+  .pane-title{
+    font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--ink-soft); padding:4px 6px 8px; font-weight:700;
+  }
+  #treePaneTitle{cursor:pointer; border-radius:6px; user-select:none;}
+  #treePaneTitle:hover{background:var(--bg-alt);}
+  #treePaneTitle.selected{background:var(--accent); color:var(--accent-ink);}
+  .status-icon-row{gap:6px;}
+  .status-icon-row button{font-size:16px; padding:6px 12px; line-height:1;}
+  .tnode{user-select:none;}
+  .tnode-row{
+    display:flex; align-items:center; gap:5px; padding:6px 6px; border-radius:6px; cursor:pointer;
+    font-size:14px;
+  }
+  .tnode-row:hover{background:var(--bg-alt);}
+  .tnode-row.selected{background:var(--accent); color:var(--accent-ink);}
+  .tnode-row.archived .tnode-label{color:var(--ink-soft); font-style:italic;}
+  .tnode-row.selected.archived .tnode-label{color:var(--accent-ink);}
+  .tnode-toggle{width:16px; flex:none; text-align:center; color:var(--ink-soft); font-size:11px; cursor:pointer;}
+  .tnode-row.selected .tnode-toggle{color:var(--accent-ink);}
+  .tnode-icon{flex:none; font-size:13px;}
+  .tnode-label{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .tnode-count{flex:none; font-family:var(--font-mono); font-size:11px; opacity:.75;}
+  .tchildren{margin-left:18px; border-left:1px dashed var(--line); padding-left:4px;}
+  .tchildren.collapsed{display:none;}
+  .note-row{
+    display:flex; align-items:flex-start; gap:8px; padding:9px 6px; border-radius:6px; cursor:pointer;
+    border-bottom:1px dashed var(--line);
+  }
+  .note-row:hover{background:var(--bg-alt);}
+  .note-row.selected{background:var(--accent); color:var(--accent-ink);}
+  .note-row .note-snippet{font-size:13.5px; line-height:1.3; flex:1; min-width:0; white-space:pre-wrap; word-break:break-word;}
+  .note-row .note-meta{font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); flex:none;}
+  .note-row.selected .note-meta{color:var(--accent-ink);}
+  .note-row .note-check{flex:none; margin-top:2px;}
+  .note-row .note-snippet.done{text-decoration:line-through; opacity:.65;}
+  .note-row.archived .note-snippet{color:var(--ink-soft); font-style:italic;}
+  .note-row.selected.archived .note-snippet{color:var(--accent-ink);}
+  .read-empty{color:var(--ink-soft); font-style:italic; font-size:14px; text-align:center; padding:40px 10px;}
+  .read-header{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;}
+  .read-header .btn-secondary{padding:7px 12px; font-size:13px;}
+  .read-text-view{white-space:pre-wrap; word-break:break-word; font-size:15px; line-height:1.45; padding:4px 2px;}
+  .read-text-view.done{text-decoration:line-through; opacity:.65;}
+  .read-text-view a{color:var(--accent); text-decoration:underline; word-break:break-all;}
 </style>
 </head>
 <body data-theme="light">
@@ -215,92 +296,50 @@
 
 <div class="app-layout">
 <nav class="tabbar">
-  <button data-tab="skriv" class="active"><span class="ic">✎</span>Skriv</button>
-  <button data-tab="visa"><span class="ic">☰</span>Visa</button>
+  <button data-tab="visa" class="active"><span class="ic">☰</span>Logg</button>
   <button data-tab="synk"><span class="ic">⇄</span>Synkronisera</button>
 </nav>
 
 <main>
 
-  <!-- SKRIV -->
-  <section class="tabpanel active" id="tab-skriv">
+  <!-- LOGG (träd + lista + läsruta) -->
+  <section class="tabpanel active" id="tab-visa">
     <div class="card">
-      <h2 class="section-title" id="formTitle">Ny anteckning</h2>
-
-      <div class="chip-toggle">
-        <button type="button" class="type-btn active" data-type="note">Anteckning</button>
-        <button type="button" class="type-btn" data-type="todo">2do-list</button>
-      </div>
-
-      <label for="inSubject" style="margin-top:16px;">Ämne</label>
-      <select id="inSubject"></select>
-      <div class="subject-add-row" id="newSubjectRow" style="display:none;">
-        <input type="text" id="newSubjectName" placeholder="Namn på nytt ämne">
-        <button class="btn-secondary" id="newSubjectConfirm">Lägg till</button>
-      </div>
-
-      <label for="inSubcat">Undergrupp (valfritt)</label>
-      <select id="inSubcat"><option value="">Ingen undergrupp</option></select>
-      <div class="subject-add-row" id="newSubcatRow" style="display:none;">
-        <input type="text" id="newSubcatName" placeholder="Namn på ny undergrupp">
-        <button class="btn-secondary" id="newSubcatConfirm">Lägg till</button>
-      </div>
-
-      <label for="inText">Text</label>
-      <textarea id="inText" placeholder="Skriv här..." style="min-height:130px;"></textarea>
-
-      <label for="inDate">Datum</label>
-      <input type="date" id="inDate">
-      <div class="checkline">
-        <input type="checkbox" id="inNoDate">
-        <label for="inNoDate" style="margin:0; font-weight:400;">Inget datum</label>
-      </div>
-
-      <button class="btn-primary" id="saveBtn">Spara</button>
-    </div>
-  </section>
-
-  <!-- VISA -->
-  <section class="tabpanel" id="tab-visa">
-    <div class="card">
-      <h2 class="section-title">Översikt</h2>
+      <h2 class="section-title">Logg</h2>
       <div class="chip-toggle" style="margin-top:0; margin-bottom:14px;">
         <button type="button" class="viewtype-btn active" data-viewtype="note">Anteckningar</button>
         <button type="button" class="viewtype-btn" data-viewtype="todo">2do-list</button>
       </div>
 
-      <label for="searchInput" style="margin-top:0;">Sök</label>
-      <div class="search-wrap">
-        <input type="text" id="searchInput" placeholder="Sök i texten...">
+      <div class="search-wrap" style="margin-bottom:10px;">
+        <input type="text" id="searchInput" placeholder="Sök i hela trädet...">
         <button type="button" id="searchClear" title="Rensa sökning" style="display:none;">✕</button>
       </div>
 
-      <div class="filters">
-        <div class="filter-group">
-          <label for="filterSubject">Ämne</label>
-          <select id="filterSubject"><option value="">Alla ämnen</option></select>
+      <div class="browser-toolbar">
+        <button type="button" id="btnAddSubject">➕ Lägg till Ämne</button>
+        <button type="button" id="btnAddSubcat">➕ Lägg till undergrupp</button>
+        <button type="button" id="btnRename">✏️ Byt namn</button>
+        <button type="button" id="btnEdit">📝 Redigera</button>
+        <button type="button" id="btnArchive">🗄 Arkivera</button>
+        <button type="button" id="btnDelete">🗑 Ta bort</button>
+      </div>
+
+      <div class="browser-layout">
+        <div class="pane pane-tree" id="treePane">
+          <div class="pane-title" id="treePaneTitle">Anteckningar</div>
+          <div id="treeRoot"><div class="empty">Inga ämnen än.</div></div>
         </div>
-        <div class="filter-group">
-          <label for="filterSubcat">Undergrupp</label>
-          <select id="filterSubcat"><option value="">Alla undergrupper</option></select>
-        </div>
-        <div class="filter-group" id="statusGroup" style="display:none;">
-          <label for="filterStatus">Status</label>
-          <select id="filterStatus">
-            <option value="alla">Alla</option>
-            <option value="oklara" selected>Ej klara</option>
-            <option value="klara">Klara</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="viewMode">Sortering</label>
-          <select id="viewMode">
-            <option value="subcat" selected>Undergrupper</option>
-            <option value="edited">Senast redigerad</option>
-          </select>
+        <div class="pane pane-list" id="listPane">
+          <div class="pane-title" id="listTitle">Noteringar</div>
+          <div class="chip-toggle status-icon-row" id="statusFilterRow" style="margin:0 0 10px; display:none;">
+            <button type="button" class="status-btn" data-status="alla" title="Alla">☑☐</button>
+            <button type="button" class="status-btn active" data-status="oklara" title="Ej klara">☐</button>
+            <button type="button" class="status-btn" data-status="klara" title="Klara">☑</button>
+          </div>
+          <div id="listRoot"><div class="empty">Välj en undergrupp eller ett ämne.</div></div>
         </div>
       </div>
-      <div id="entriesRoot"><div class="empty">Inga anteckningar än.</div></div>
     </div>
   </section>
 
@@ -353,37 +392,6 @@
   </div>
 </div>
 
-<!-- REDIGERA -->
-<div class="overlay" id="editOverlay" style="display:none;">
-  <div class="card">
-    <button class="modal-close" id="editClose">✕</button>
-    <h2>Redigera post</h2>
-
-    <div class="chip-toggle">
-      <button type="button" class="edit-type-btn active" data-type="note">Anteckning</button>
-      <button type="button" class="edit-type-btn" data-type="todo">2do-list</button>
-    </div>
-
-    <label for="editSubject">Ämne</label>
-    <select id="editSubject"></select>
-
-    <label for="editSubcat">Undergrupp (valfritt)</label>
-    <select id="editSubcat"><option value="">Ingen undergrupp</option></select>
-
-    <label for="editText">Text</label>
-    <textarea id="editText" style="min-height:130px;"></textarea>
-
-    <label for="editDate">Datum</label>
-    <input type="date" id="editDate">
-    <div class="checkline">
-      <input type="checkbox" id="editNoDate">
-      <label for="editNoDate" style="margin:0; font-weight:400;">Inget datum</label>
-    </div>
-
-    <button class="btn-primary" id="editSaveBtn">Spara ändringar</button>
-  </div>
-</div>
-
 <!-- OM -->
 <div class="overlay" id="aboutOverlay" style="display:none;">
   <div class="card" style="max-width:460px; max-height:80vh; overflow-y:auto;">
@@ -424,6 +432,17 @@
 
     <h3 style="font-family:var(--font-display); font-size:15px; margin:18px 0 6px;">Version</h3>
     <p class="hint" style="margin-top:0;">Loggbok v<span id="aboutVersion"></span> · © <span id="aboutYear"></span> Per Andersson</p>
+  </div>
+</div>
+
+<!-- BEKRÄFTA (t.ex. radering) - Avbryt är default -->
+<div class="overlay" id="confirmOverlay" style="display:none;">
+  <div class="card">
+    <p id="confirmMessage" style="margin-top:0;"></p>
+    <div class="row" style="margin-top:18px;">
+      <button type="button" class="btn-secondary" id="confirmCancelBtn">Avbryt</button>
+      <button type="button" class="btn-primary danger-btn" id="confirmOkBtn" style="margin-top:0;">Ta bort</button>
+    </div>
   </div>
 </div>
 
@@ -2749,7 +2768,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.1.03";
+const APP_VERSION = "1.3.13";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2780,6 +2799,34 @@ function toast(msg){
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("show");
   setTimeout(()=>t.classList.remove("show"), 2200);
+}
+/* Anpassad bekräftelse-dialog där Avbryt är default (Enter/Escape avbryter). */
+function customConfirm(message, okLabel){
+  return new Promise(resolve=>{
+    const overlay = document.getElementById("confirmOverlay");
+    const okBtn = document.getElementById("confirmOkBtn");
+    const cancelBtn = document.getElementById("confirmCancelBtn");
+    document.getElementById("confirmMessage").textContent = message;
+    okBtn.textContent = okLabel || "Ta bort";
+    overlay.style.display = "flex";
+    function cleanup(result){
+      overlay.style.display = "none";
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      document.removeEventListener("keydown", onKey, true);
+      resolve(result);
+    }
+    function onOk(){ cleanup(true); }
+    function onCancel(){ cleanup(false); }
+    function onKey(e){
+      if(e.key === "Escape"){ e.preventDefault(); cleanup(false); }
+      else if(e.key === "Enter"){ e.preventDefault(); cleanup(false); } // Avbryt är default
+    }
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    document.addEventListener("keydown", onKey, true);
+    setTimeout(()=>cancelBtn.focus(), 0);
+  });
 }
 async function sha256Hex(str){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
@@ -3003,34 +3050,47 @@ function startWorkspaceListeners(){
   if(unsubSubcats) unsubSubcats();
   if(unsubItems) unsubItems();
 
-  unsubSubjects = onSnapshot(query(subjectsCol, orderBy("createdAt","asc")), async snap=>{
+  // OBS: vi använder INTE orderBy("createdAt") här. Firestore utesluter tyst
+  // dokument som helt saknar det fältet (t.ex. äldre poster skapade innan
+  // tidsstämpeln fanns/sattes korrekt) — det gjorde att gamla anteckningar
+  // försvann i appen. Vi hämtar allt och sorterar själva i JS istället.
+  function createdAtMillisSafe(ts){
+    if(!ts) return 0;
+    if(typeof ts.toMillis === "function") return ts.toMillis();
+    if(typeof ts.seconds === "number") return ts.seconds*1000;
+    return 0;
+  }
+
+  unsubSubjects = onSnapshot(subjectsCol, async snap=>{
     const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    subjects = await Promise.all(raw.map(async s=>({...s, name: await decryptText(s.name)})));
-    renderSubjectSelects();
-    renderSubcatFilter();
-    renderEntries();
+    const decrypted = await Promise.all(raw.map(async s=>({...s, name: await decryptText(s.name)})));
+    subjects = decrypted.sort((a,b)=>createdAtMillisSafe(a.createdAt)-createdAtMillisSafe(b.createdAt));
     document.getElementById("statSubjects").textContent = subjects.length;
     subjectsLoadedOnce = true;
     maybeRunSubjectTypeMigration();
+    maybeRepairMismatchedSubcatRefs();
+    renderAll();
   }, err=>console.error(err));
 
-  unsubSubcats = onSnapshot(query(subcatsCol, orderBy("createdAt","asc")), async snap=>{
+  unsubSubcats = onSnapshot(subcatsCol, async snap=>{
     const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    subcats = await Promise.all(raw.map(async sc=>({...sc, name: await decryptText(sc.name)})));
-    renderSubcatSelect();
-    renderSubcatFilter();
-    renderEntries();
+    const decrypted = await Promise.all(raw.map(async sc=>({...sc, name: await decryptText(sc.name)})));
+    subcats = decrypted.sort((a,b)=>createdAtMillisSafe(a.createdAt)-createdAtMillisSafe(b.createdAt));
     subcatsLoadedOnce = true;
     maybeRunSubjectTypeMigration();
+    maybeRepairMismatchedSubcatRefs();
+    renderAll();
   }, err=>console.error(err));
 
-  unsubItems = onSnapshot(query(itemsCol, orderBy("createdAt","desc")), async snap=>{
+  unsubItems = onSnapshot(itemsCol, async snap=>{
     const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    items = await Promise.all(raw.map(async it=>({...it, text: await decryptText(it.text)})));
-    renderEntries();
+    const decrypted = await Promise.all(raw.map(async it=>({...it, text: await decryptText(it.text)})));
+    items = decrypted.sort((a,b)=>createdAtMillisSafe(b.createdAt)-createdAtMillisSafe(a.createdAt));
     document.getElementById("statItems").textContent = items.length;
     itemsLoadedOnce = true;
     maybeRunSubjectTypeMigration();
+    maybeRepairMismatchedSubcatRefs();
+    renderAll();
   }, err=>console.error(err));
 }
 
@@ -3093,58 +3153,56 @@ async function maybeRunSubjectTypeMigration(){
   }
 }
 
-/* ---------- Subjects ---------- */
-const inSubject = document.getElementById("inSubject");
-const filterSubject = document.getElementById("filterSubject");
-function syncNewSubjectRow(){
-  document.getElementById("newSubjectRow").style.display = inSubject.value === "__new__" ? "flex" : "none";
-}
-inSubject.addEventListener("change", syncNewSubjectRow);
-inSubject.addEventListener("change", renderSubcatSelect);
-const inSubcat = document.getElementById("inSubcat");
-function syncNewSubcatRow(){
-  document.getElementById("newSubcatRow").style.display = inSubcat.value === "__new__" ? "flex" : "none";
-}
-inSubcat.addEventListener("change", syncNewSubcatRow);
-let pendingSelectSubcatId = null;
-function renderSubcatSelect(){
-  const subjectId = inSubject.value;
-  const relevant = subcats.filter(sc=>sc.subjectId===subjectId).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
-  const prev = inSubcat.value;
-  inSubcat.innerHTML = `<option value="">Ingen undergrupp</option>`
-    + relevant.map(sc=>`<option value="${sc.id}">${escapeHtml(sc.name)}</option>`).join("")
-    + `<option value="__new__">+ Ny undergrupp...</option>`;
-  if(pendingSelectSubcatId && relevant.some(sc=>sc.id===pendingSelectSubcatId)){
-    inSubcat.value = pendingSelectSubcatId;
-    pendingSelectSubcatId = null;
-  } else if(relevant.some(sc=>sc.id===prev)){
-    inSubcat.value = prev;
-  } else {
-    inSubcat.value = "";
+/* Reparerar poster vars undergrupp (subcatId) pekar på en undergrupp som hör till
+   ETT ANNAT ämne än postens eget subjectId (t.ex. kvarblivet fel efter att
+   maybeRunSubjectTypeMigration avbröts halvvägs), eller på en undergrupp som
+   inte längre finns alls. Flyttar aldrig bort text/data — kopplar bara om
+   referensen till rätt (eller ingen) undergrupp, så posten blir synlig igen. */
+let isRepairingSubcatRefs = false;
+async function maybeRepairMismatchedSubcatRefs(){
+  if(isRepairingSubcatRefs) return;
+  if(!subjectsLoadedOnce || !subcatsLoadedOnce || !itemsLoadedOnce) return;
+  const broken = items.filter(it=>{
+    if(!it.subcatId) return false;
+    const sc = subcats.find(s=>s.id===it.subcatId);
+    if(!sc) return true;                      // undergruppen finns inte längre
+    return sc.subjectId !== it.subjectId;      // undergruppen hör till ett annat ämne
+  });
+  if(broken.length === 0) return;
+  isRepairingSubcatRefs = true;
+  let fixedCount = 0;
+  try{
+    for(const it of broken){
+      const oldSubcat = subcats.find(s=>s.id===it.subcatId);
+      if(!oldSubcat){
+        // Undergruppen är borta -> koppla loss, posten blir kvar direkt på ämnet.
+        await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {subcatId:null, updatedAt: serverTimestamp()});
+        fixedCount++;
+        continue;
+      }
+      // Leta efter en undergrupp med samma namn som redan hör till postens rätta ämne.
+      let target = subcats.find(s=>s.subjectId===it.subjectId && s.name===oldSubcat.name);
+      if(!target){
+        const newRef = await addDoc(collection(db,"workspaces",wsId,"subcats"), {
+          subjectId: it.subjectId, name: await encryptText(oldSubcat.name), archived:false, createdAt: serverTimestamp()
+        });
+        target = {id:newRef.id, subjectId: it.subjectId, name: oldSubcat.name, archived:false};
+        subcats.push(target); // så efterföljande poster i samma körning hittar samma nya undergrupp
+      }
+      await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {subcatId: target.id, updatedAt: serverTimestamp()});
+      fixedCount++;
+    }
+    if(fixedCount > 0){
+      toast(`Reparerade ${fixedCount} post(er) med felaktig undergruppskoppling`);
+    }
+  }catch(err){
+    console.error("Reparationsfel (undergrupps-koppling)", err);
+  }finally{
+    isRepairingSubcatRefs = false;
   }
-  syncNewSubcatRow();
 }
-document.getElementById("newSubcatConfirm").addEventListener("click", async ()=>{
-  const subjectId = inSubject.value;
-  if(!subjectId || subjectId === "__new__"){ toast("Välj eller skapa ett ämne först"); return; }
-  const name = document.getElementById("newSubcatName").value.trim();
-  if(!name) return;
-  const ref = await addDoc(collection(db,"workspaces",wsId,"subcats"), {subjectId, name: await encryptText(name), createdAt: serverTimestamp()});
-  pendingSelectSubcatId = ref.id;
-  document.getElementById("newSubcatName").value = "";
-  document.getElementById("newSubcatRow").style.display = "none";
-  toast("Undergrupp tillagd");
-});
-let pendingSelectSubjectId = null;
-document.getElementById("newSubjectConfirm").addEventListener("click", async ()=>{
-  const name = document.getElementById("newSubjectName").value.trim();
-  if(!name) return;
-  const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name: await encryptText(name), type: selectedType, createdAt: serverTimestamp()});
-  pendingSelectSubjectId = ref.id;
-  document.getElementById("newSubjectName").value = "";
-  document.getElementById("newSubjectRow").style.display = "none";
-  toast("Ämne tillagt");
-});
+
+/* ---------- Hjälpfunktioner: tid, ordning, radering ---------- */
 function millisOf(ts){
   if(!ts) return Date.now(); // väntar fortfarande på serverns tidsstämpel -> räkna som nyss
   if(typeof ts.toMillis === "function") return ts.toMillis();
@@ -3165,49 +3223,31 @@ function subjectLastUsedMillis(subjectId){
   return max;
 }
 function getOrderedSubjects(){
-  const withUsage = subjects.map(s=>({s, last: subjectLastUsedMillis(s.id)}));
+  const active = subjects.filter(s=>!s.archived);
+  const archived = subjects.filter(s=>s.archived);
+  const withUsage = active.map(s=>({s, last: subjectLastUsedMillis(s.id)}));
   const byRecency = [...withUsage].sort((a,b)=>b.last - a.last);
   const top5 = byRecency.slice(0,5);
   const top5Ids = new Set(top5.map(x=>x.s.id));
   const rest = withUsage.filter(x=>!top5Ids.has(x.s.id)).sort((a,b)=>a.s.name.localeCompare(b.s.name,"sv"));
-  return [...top5, ...rest].map(x=>x.s);
+  const archivedSorted = archived.slice().sort((a,b)=>a.name.localeCompare(b.name,"sv"));
+  return [...top5.map(x=>x.s), ...rest.map(x=>x.s), ...archivedSorted];
 }
 function getOrderedSubjectsForType(type){
   return getOrderedSubjects().filter(s=>(s.type || "note") === type);
 }
-
-function renderSubjectSelects(){
-  const skrivOpts = getOrderedSubjectsForType(selectedType).map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
-  const prevIn = inSubject.value;
-  inSubject.innerHTML = skrivOpts + `<option value="__new__">+ Nytt ämne...</option>`;
-  if(pendingSelectSubjectId && subjects.some(s=>s.id===pendingSelectSubjectId)){
-    inSubject.value = pendingSelectSubjectId;
-    pendingSelectSubjectId = null;
-  } else if(subjects.some(s=>s.id===prevIn)){
-    inSubject.value = prevIn;
-  }
-  syncNewSubjectRow();
-  renderSubcatSelect();
-  renderFilterSubjectOptions();
-}
-function renderFilterSubjectOptions(){
-  const visaOpts = getOrderedSubjectsForType(viewType).map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
-  const prevFilter = filterSubject.value;
-  filterSubject.innerHTML = `<option value="">Alla ämnen</option>` + visaOpts;
-  if(pendingFilterSubjectId !== null){
-    if(pendingFilterSubjectId === "" || subjects.some(s=>s.id===pendingFilterSubjectId)){
-      filterSubject.value = pendingFilterSubjectId;
-    }
-    pendingFilterSubjectId = null;
-  } else if(subjects.some(s=>s.id===prevFilter)){
-    filterSubject.value = prevFilter;
-  }
-  renderSubcatFilter();
+function getOrderedSubcats(subjectId){
+  const relevant = subcats.filter(sc=>sc.subjectId===subjectId);
+  const active = relevant.filter(sc=>!sc.archived).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
+  const archived = relevant.filter(sc=>sc.archived).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
+  return [...active, ...archived];
 }
 async function deleteSubject(id, name){
   const hasItems = items.some(i=>i.subjectId===id);
-  const msg = hasItems ? `"${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?` : `Ta bort ämnet "${name}"?`;
-  if(!confirm(msg)) return;
+  const msg = hasItems
+    ? `Objektet du försöker radera är inte tomt. Ämnet "${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?`
+    : `Ta bort ämnet "${name}"?`;
+  if(!(await customConfirm(msg))) return;
   for(const it of items.filter(i=>i.subjectId===id)){
     await deleteDoc(doc(db,"workspaces",wsId,"items",it.id));
   }
@@ -3217,382 +3257,572 @@ async function deleteSubject(id, name){
   await deleteDoc(doc(db,"workspaces",wsId,"subjects",id));
   toast("Ämne borttaget");
 }
-
-/* ---------- Skriv: type toggle + date ---------- */
-let selectedType = "note";
-document.querySelectorAll(".type-btn").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    document.querySelectorAll(".type-btn").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-    selectedType = btn.dataset.type;
-    document.getElementById("formTitle").textContent = selectedType === "todo" ? "Ny 2do-post" : "Ny anteckning";
-    renderSubjectSelects();
-  });
-});
-const inDate = document.getElementById("inDate");
-const inNoDate = document.getElementById("inNoDate");
-inDate.value = todayLocal();
-inNoDate.addEventListener("change", ()=>{
-  inDate.disabled = inNoDate.checked;
-});
-
-document.getElementById("saveBtn").addEventListener("click", async ()=>{
-  if(!wsId){ toast("Anslut till en grupp först"); return; }
-  let subjectId = inSubject.value;
-  const text = document.getElementById("inText").value.trim();
-  if(!text){ toast("Skriv någon text"); return; }
-  if(!subjectId || subjectId === "__new__"){
-    const name = document.getElementById("newSubjectName").value.trim();
-    if(!name){ toast("Välj eller skapa ett ämne"); return; }
-    const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {name: await encryptText(name), type: selectedType, createdAt: serverTimestamp()});
-    subjectId = ref.id;
-    pendingSelectSubjectId = ref.id;
+async function deleteSubcat(id, name){
+  const hasItems = items.some(i=>i.subcatId===id);
+  const msg = hasItems
+    ? `Objektet du försöker radera är inte tomt. Undergruppen "${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?`
+    : `Ta bort undergruppen "${name}"?`;
+  if(!(await customConfirm(msg))) return;
+  for(const it of items.filter(i=>i.subcatId===id)){
+    await deleteDoc(doc(db,"workspaces",wsId,"items",it.id));
   }
-  let subcatId = inSubcat.value || null;
-  if(subcatId === "__new__"){
-    const scName = document.getElementById("newSubcatName").value.trim();
-    if(!scName){ toast("Skriv ett namn på undergruppen, eller välj \"Ingen undergrupp\""); return; }
-    const scRef = await addDoc(collection(db,"workspaces",wsId,"subcats"), {subjectId, name: await encryptText(scName), createdAt: serverTimestamp()});
-    subcatId = scRef.id;
-  }
-  const dateVal = inNoDate.checked ? null : inDate.value;
-  await addDoc(collection(db,"workspaces",wsId,"items"), {
-    subjectId, type: selectedType, text: await encryptText(text), date: dateVal, done: false, doneDate: null, subcatId,
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+  await deleteDoc(doc(db,"workspaces",wsId,"subcats",id));
+  toast("Undergrupp borttagen");
+}
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+/* Samma tolerans som originalappen: bara "todo" räknas som 2do-post,
+   ALLT annat (saknat fält, äldre/avvikande värden osv.) räknas som Anteckning.
+   OBS: kräv INTE att type exakt är strängen "note" – det gjorde äldre poster osynliga. */
+function itemViewType(it){
+  return it.type === "todo" ? "todo" : "note";
+}
+/* Gör klickbara länkar av URL:er i redan HTML-escapead text (escapeHtml måste
+   köras FÖRE detta). Öppnas i ny flik/webbläsarfönster. */
+function linkifyEscaped(escaped){
+  return escaped.replace(/(https?:\/\/[^\s<]+)/g, (url)=>{
+    let trail = "";
+    const m = url.match(/[).,!?;:]+$/);
+    if(m){ trail = m[0]; url = url.slice(0, -trail.length); }
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trail}`;
   });
-  document.getElementById("inText").value = "";
-  document.getElementById("newSubcatName").value = "";
-  document.getElementById("newSubcatRow").style.display = "none";
-  inNoDate.checked = false; inDate.disabled = false; inDate.value = todayLocal();
-  toast("Sparat");
-});
+}
+function sortItemsForDisplay(list){
+  return [...list].sort((a,b)=>{
+    const aArch = !!a.archived, bArch = !!b.archived;
+    if(aArch !== bArch) return aArch ? 1 : -1;
+    const aHas = !!a.date, bHas = !!b.date;
+    if(aHas && bHas) return b.date.localeCompare(a.date);
+    if(aHas && !bHas) return -1;
+    if(!aHas && bHas) return 1;
+    return 0;
+  });
+}
 
-/* ---------- Visa: render entries ---------- */
+/* ---------- Trädvy: state ---------- */
 let viewType = "note";
-let pendingFilterSubjectId = null;
-let pendingFilterSubcatId = null;
-const filterSubcat = document.getElementById("filterSubcat");
+let selNodeType = null;   // "subject" | "subcat" | null
+let selSubjectId = null;
+let selSubcatId = null;   // null = ingen undergrupp (poster direkt under ämnet)
+let selNoteId = null;
+let readMode = "empty";   // "empty" | "view" | "edit" | "new"
+let expandedSubjects = new Set();
+let filterStatus = "oklara"; // "alla" | "oklara" | "klara" (gäller 2do-list)
 
-function saveViewPrefs(){
-  localStorage.setItem("loggbok-viewprefs", JSON.stringify({
-    viewType,
-    filterSubject: filterSubject.value,
-    filterSubcat: filterSubcat.value,
-    filterStatus: document.getElementById("filterStatus").value,
-    viewMode: document.getElementById("viewMode").value
-  }));
+const searchInput = document.getElementById("searchInput");
+const searchClear = document.getElementById("searchClear");
+function updateSearchClear(){
+  searchClear.style.display = searchInput.value ? "flex" : "none";
 }
-function loadViewPrefs(){
-  const saved = JSON.parse(localStorage.getItem("loggbok-viewprefs") || "null");
-  if(!saved) return;
-  viewType = saved.viewType === "todo" ? "todo" : "note";
-  document.querySelectorAll(".viewtype-btn").forEach(b=>b.classList.toggle("active", b.dataset.viewtype===viewType));
-  document.getElementById("statusGroup").style.display = viewType === "todo" ? "" : "none";
-  if(saved.filterStatus) document.getElementById("filterStatus").value = saved.filterStatus;
-  if(saved.viewMode) document.getElementById("viewMode").value = saved.viewMode;
-  pendingFilterSubjectId = typeof saved.filterSubject === "string" ? saved.filterSubject : null;
-  pendingFilterSubcatId = typeof saved.filterSubcat === "string" ? saved.filterSubcat : null;
-}
-loadViewPrefs();
+searchInput.addEventListener("input", ()=>{ updateSearchClear(); renderList(); });
+searchClear.addEventListener("click", ()=>{
+  searchInput.value = "";
+  updateSearchClear();
+  renderList();
+  searchInput.focus();
+});
 
-function renderSubcatFilter(){
-  const subjectId = filterSubject.value;
-  const relevant = subjectId
-    ? subcats.filter(sc=>sc.subjectId===subjectId).sort((a,b)=>a.name.localeCompare(b.name,"sv"))
-    : subcats.slice().sort((a,b)=>{
-        const subjA = subjects.find(s=>s.id===a.subjectId)?.name || "";
-        const subjB = subjects.find(s=>s.id===b.subjectId)?.name || "";
-        return subjA.localeCompare(subjB,"sv") || a.name.localeCompare(b.name,"sv");
-      });
-  const prev = filterSubcat.value;
-  const labelFor = sc => subjectId ? escapeHtml(sc.name) : `${escapeHtml(sc.name)} (${escapeHtml(subjects.find(s=>s.id===sc.subjectId)?.name || "?")})`;
-  filterSubcat.innerHTML = `<option value="">Alla undergrupper</option><option value="__none__">Utan undergrupp</option>`
-    + relevant.map(sc=>`<option value="${sc.id}">${labelFor(sc)}</option>`).join("");
-  if(pendingFilterSubcatId !== null){
-    if(pendingFilterSubcatId === "" || pendingFilterSubcatId === "__none__" || relevant.some(sc=>sc.id===pendingFilterSubcatId)){
-      filterSubcat.value = pendingFilterSubcatId;
-    }
-    pendingFilterSubcatId = null;
-  } else if(prev === "__none__" || relevant.some(sc=>sc.id===prev)){
-    filterSubcat.value = prev;
-  } else {
-    filterSubcat.value = "";
-  }
-}
+const statusFilterRow = document.getElementById("statusFilterRow");
+document.querySelectorAll(".status-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".status-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    filterStatus = btn.dataset.status;
+    renderList();
+  });
+});
+
+document.getElementById("treePaneTitle").addEventListener("click", ()=>{
+  selNodeType = null; selSubjectId = null; selSubcatId = null; selNoteId = null; readMode = "empty";
+  renderTree(); renderList(); updateToolbarState();
+});
 
 document.querySelectorAll(".viewtype-btn").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     document.querySelectorAll(".viewtype-btn").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     viewType = btn.dataset.viewtype;
-    document.getElementById("statusGroup").style.display = viewType === "todo" ? "" : "none";
-    renderFilterSubjectOptions();
-    saveViewPrefs();
-    renderEntries();
+    document.getElementById("treePaneTitle").textContent = viewType === "todo" ? "2do-list" : "Anteckningar";
+    statusFilterRow.style.display = viewType === "todo" ? "flex" : "none";
+    selNodeType = null; selSubjectId = null; selSubcatId = null; selNoteId = null; readMode = "empty";
+    renderAll();
   });
 });
-filterSubject.addEventListener("change", ()=>{ renderSubcatFilter(); saveViewPrefs(); renderEntries(); });
-filterSubcat.addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
-document.getElementById("filterStatus").addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
-document.getElementById("viewMode").addEventListener("change", ()=>{ saveViewPrefs(); renderEntries(); });
-const searchInput = document.getElementById("searchInput");
-const searchClear = document.getElementById("searchClear");
-function updateSearchClear(){
-  searchClear.style.display = searchInput.value ? "flex" : "none";
-}
-searchInput.addEventListener("input", ()=>{ updateSearchClear(); renderEntries(); });
-searchClear.addEventListener("click", ()=>{
-  searchInput.value = "";
-  updateSearchClear();
-  renderEntries();
-  searchInput.focus();
-});
 
-function escapeHtml(s){
-  return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function renderAll(){
+  try{
+    renderTree();
+  }catch(err){
+    console.error("Fel vid visning av trädet", err);
+    document.getElementById("treeRoot").innerHTML =
+      `<div class="empty">⚠️ Fel vid visning av trädet:<br><span style="font-family:var(--font-mono); font-size:11px;">${escapeHtml(String(err && err.message || err))}</span></div>`;
+  }
+  try{
+    renderList();
+  }catch(err){
+    console.error("Fel vid visning av listan", err);
+    document.getElementById("listRoot").innerHTML =
+      `<div class="empty">⚠️ Fel vid visning av listan:<br><span style="font-family:var(--font-mono); font-size:11px;">${escapeHtml(String(err && err.message || err))}</span></div>`;
+  }
+  updateToolbarState();
 }
 
-function sortItemsForDisplay(list){
-  return [...list].sort((a,b)=>{
-    const aHas = !!a.date, bHas = !!b.date;
-    if(aHas && bHas) return b.date.localeCompare(a.date);
-    if(aHas && !bHas) return -1;
-    if(!aHas && bHas) return 1;
-    return 0; // båda utan datum: behåll ordningen från Firestore (redan nyast-skapad-först)
+/* ---------- Träd ---------- */
+function renderTree(){
+  const root = document.getElementById("treeRoot");
+  const titleEl = document.getElementById("treePaneTitle");
+  titleEl.classList.toggle("selected", selNodeType === null);
+
+  const subjectsToShow = getOrderedSubjectsForType(viewType);
+  if(subjectsToShow.length === 0){
+    root.innerHTML = `<div class="empty">Inga ämnen än. Klicka "Lägg till Ämne".</div>`;
+    return;
+  }
+  let html = "";
+  subjectsToShow.forEach(subj=>{
+    const subcatsHere = getOrderedSubcats(subj.id);
+    const hasChildren = subcatsHere.length > 0;
+    const expanded = expandedSubjects.has(subj.id);
+    const isSel = selNodeType==="subject" && selSubjectId===subj.id;
+    html += `<div class="tnode">
+      <div class="tnode-row ${isSel?"selected":""} ${subj.archived?"archived":""}" data-subj="${subj.id}">
+        <span class="tnode-toggle" data-toggle-subj="${subj.id}">${hasChildren ? (expanded ? "▾" : "▸") : ""}</span>
+        <span class="tnode-icon">📁</span>
+        <span class="tnode-label">${escapeHtml(subj.name)}</span>
+      </div>
+      <div class="tchildren ${expanded?"":"collapsed"}">`;
+    subcatsHere.forEach(sc=>{
+      const isSelSc = selNodeType==="subcat" && selSubcatId===sc.id;
+      html += `<div class="tnode-row ${isSelSc?"selected":""} ${sc.archived?"archived":""}" data-subj="${subj.id}" data-subcat="${sc.id}">
+        <span class="tnode-toggle"></span>
+        <span class="tnode-icon">🗂</span>
+        <span class="tnode-label">${escapeHtml(sc.name)}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  root.innerHTML = html;
+
+  root.querySelectorAll("[data-toggle-subj]").forEach(el=>{
+    el.addEventListener("click", e=>{
+      e.stopPropagation();
+      const id = el.dataset.toggleSubj;
+      if(expandedSubjects.has(id)) expandedSubjects.delete(id); else expandedSubjects.add(id);
+      renderTree();
+    });
+  });
+  root.querySelectorAll(".tnode-row").forEach(row=>{
+    row.addEventListener("click", ()=>{
+      const subjId = row.dataset.subj;
+      const subcatId = row.dataset.subcat;
+      if(subcatId){
+        selNodeType = "subcat"; selSubjectId = subjId; selSubcatId = subcatId;
+      } else {
+        selNodeType = "subject"; selSubjectId = subjId; selSubcatId = null;
+        if(!expandedSubjects.has(subjId)) expandedSubjects.add(subjId);
+      }
+      selNoteId = null; readMode = "empty";
+      renderTree(); renderList(); updateToolbarState();
+    });
   });
 }
-function sortByEdited(list){
-  return [...list].sort((a,b)=> millisOf(b.updatedAt) - millisOf(a.updatedAt));
+
+/* ---------- Lista (noteringar + inbyggd läs-/redigeringsvy) ---------- */
+function currentSubject(){ return subjects.find(s=>s.id===selSubjectId) || null; }
+function currentSubcat(){ return subcats.find(sc=>sc.id===selSubcatId) || null; }
+
+function selectNote(id){
+  selNoteId = (selNoteId === id) ? null : id; // klick igen fäller ihop
+  readMode = selNoteId ? "view" : "empty";
+  renderList();
+  updateToolbarState();
+}
+function startNewNote(){
+  if(!selSubjectId){ toast("Välj eller skapa ett ämne först"); return; }
+  selNoteId = null;
+  readMode = "new";
+  renderList();
+  updateToolbarState();
+}
+function startEditNote(){
+  if(!selNoteId) return;
+  readMode = "edit";
+  renderList();
+  updateToolbarState();
+}
+function cancelReadEdit(){
+  readMode = selNoteId ? "view" : "empty";
+  renderList();
+  updateToolbarState();
 }
 
-function renderEntries(){
-  const root = document.getElementById("entriesRoot");
-  const subFilter = filterSubject.value;
-  const subcatFilterVal = filterSubcat.value;
-  const statusFilter = document.getElementById("filterStatus").value;
-  const viewMode = document.getElementById("viewMode").value;
-  const searchTerm = document.getElementById("searchInput").value.trim().toLowerCase();
+function noteDetailHtml(it){
+  const isTodo = it.type === "todo";
+  const addedDate = fmtDateShort(isoFromMillis(millisOf(it.createdAt)));
+  return `
+    <div class="read-text-view ${it.done?"done":""}">${linkifyEscaped(escapeHtml(it.text))}</div>
+    ${isTodo ? `<div class="todo-dates" style="margin-top:10px;">
+        <label class="checkline" style="margin:0;"><input type="checkbox" id="readDoneCheck" ${it.done?"checked":""}> Klar</label>
+        <span class="added-date">Tillagd: ${addedDate}</span>
+        ${it.doneDate ? `<span class="done-date">Klar: ${fmtDateShort(it.doneDate)}</span>` : ""}
+      </div>` : ""}
+    ${it.archived ? `<div class="note-meta" style="margin-top:8px;">Arkiverad</div>` : ""}
+  `;
+}
+function noteFormHtml(it){
+  const dateVal = it && it.date ? it.date : todayLocal();
+  const noDate = it ? !it.date : false;
+  return `
+    <label for="readTextArea" style="margin-top:0;">Text</label>
+    <textarea id="readTextArea" style="min-height:120px;">${it ? escapeHtml(it.text) : ""}</textarea>
+    <label for="readDateInput">Datum</label>
+    <input type="date" id="readDateInput" value="${dateVal}" ${noDate?"disabled":""}>
+    <div class="checkline">
+      <input type="checkbox" id="readNoDate" ${noDate?"checked":""}>
+      <label for="readNoDate" style="margin:0; font-weight:400;">Inget datum</label>
+    </div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" id="readSaveBtn" style="margin-top:0;">Spara</button>
+      <button class="btn-secondary" id="readCancelBtn">Avbryt</button>
+    </div>
+  `;
+}
+function wireNoteForm(container, it){
+  const dateInput = container.querySelector("#readDateInput");
+  const noDateBox = container.querySelector("#readNoDate");
+  const textArea = container.querySelector("#readTextArea");
+  const saveBtn = container.querySelector("#readSaveBtn");
+  noDateBox.addEventListener("change", ()=>{ dateInput.disabled = noDateBox.checked; });
+  container.querySelector("#readCancelBtn").addEventListener("click", (e)=>{ e.stopPropagation(); cancelReadEdit(); });
+  saveBtn.addEventListener("click", async (e)=>{
+    e.stopPropagation();
+    const text = textArea.value.trim();
+    if(!text){ toast("Skriv någon text"); return; }
+    const dateVal = noDateBox.checked ? null : dateInput.value;
+    if(it){
+      await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {
+        text: await encryptText(text), date: dateVal, updatedAt: serverTimestamp()
+      });
+      readMode = "view";
+      toast("Ändringar sparade");
+    } else {
+      const ref = await addDoc(collection(db,"workspaces",wsId,"items"), {
+        subjectId: selSubjectId, subcatId: selNodeType==="subcat" ? selSubcatId : null,
+        type: viewType, text: await encryptText(text), date: dateVal, done: false, doneDate: null,
+        archived: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+      });
+      selNoteId = ref.id;
+      readMode = "view";
+      toast("Sparat");
+    }
+    renderList(); updateToolbarState();
+  });
+  // Spara är default-åtgärden: Ctrl/Cmd+Enter i texten, eller Enter i datumfältet, sparar direkt.
+  textArea.addEventListener("keydown", e=>{
+    if(e.key === "Enter" && (e.ctrlKey || e.metaKey)){ e.preventDefault(); saveBtn.click(); }
+  });
+  dateInput.addEventListener("keydown", e=>{
+    if(e.key === "Enter"){ e.preventDefault(); saveBtn.click(); }
+  });
+}
+
+function subjectNameById(id){ const s = subjects.find(s=>s.id===id); return s ? s.name : ""; }
+function subcatNameById(id){ const sc = subcats.find(sc=>sc.id===id); return sc ? sc.name : ""; }
+
+function renderList(){
+  const root = document.getElementById("listRoot");
+  const titleEl = document.getElementById("listTitle");
+
+  const searchTerm = searchInput.value.trim().toLowerCase();
   const searchWords = searchTerm.length ? searchTerm.split(/\s+/) : [];
+  const isSearching = searchWords.length > 0;
+
+  if(!isSearching && !selSubjectId){
+    titleEl.textContent = "Noteringar";
+    root.innerHTML = `<div class="empty">Välj ett ämne eller en undergrupp till vänster.</div>`;
+    return;
+  }
+  if(isSearching && !selSubjectId){
+    titleEl.textContent = "Sökresultat — alla " + (viewType==="todo" ? "2do-listor" : "anteckningar");
+  }
+
+  // Sökomfattning: undergrupp vald -> bara den undergruppen. Ämne valt -> hela ämnet
+  // (alla dess undergrupper). Inget valt -> hela trädet för aktuell flik.
+  const searchScope = !selSubjectId ? "global" : (selNodeType === "subcat" ? "subcat" : "subject");
+
+  const subj = selSubjectId ? currentSubject() : null;
+  const sc = selNodeType==="subcat" ? currentSubcat() : null;
+  if(selSubjectId){
+    const base = sc ? escapeHtml(subj.name)+" / "+escapeHtml(sc.name) : escapeHtml(subj ? subj.name : "");
+    titleEl.innerHTML = isSearching ? base + " — sökresultat" : base;
+  }
 
   let filtered = items.filter(it=>{
-    const isTodoItem = it.type === "todo";
-    if(viewType === "todo" && !isTodoItem) return false;
-    if(viewType === "note" && isTodoItem) return false;
-    if(subFilter && it.subjectId !== subFilter) return false;
-    if(subcatFilterVal === "__none__" && it.subcatId) return false;
-    if(subcatFilterVal && subcatFilterVal !== "__none__" && it.subcatId !== subcatFilterVal) return false;
-    if(viewType === "todo"){
-      if(statusFilter === "klara" && !it.done) return false;
-      if(statusFilter === "oklara" && it.done) return false;
+    if(itemViewType(it) !== viewType) return false;
+    if(searchScope === "subcat"){
+      if(it.subjectId !== selSubjectId || it.subcatId !== selSubcatId) return false;
+    } else if(searchScope === "subject"){
+      if(it.subjectId !== selSubjectId) return false;
+    } else if(!isSearching){
+      // (kan inte hända: global icke-sökning fångas ovan, men skyddar ändå)
+      return false;
     }
-    if(searchWords.length){
-      const textLower = (it.text || "").toLowerCase();
+    if(viewType === "todo" && filterStatus !== "alla"){
+      if(filterStatus === "klara" && !it.done) return false;
+      if(filterStatus === "oklara" && it.done) return false;
+    }
+    if(isSearching){
+      const textLower = (it.text||"").toLowerCase();
       if(!searchWords.every(w=>textLower.includes(w))) return false;
     }
     return true;
   });
+  filtered = sortItemsForDisplay(filtered);
 
-  const groups = {};
-  filtered.forEach(it=>{
-    const key = it.subjectId || "_";
-    (groups[key] = groups[key] || []).push(it);
-  });
-  // Se till att alla ämnen visas, även utan (matchande) anteckningar — annars går de inte att ta bort
-  const subjectsToShow = subFilter ? subjects.filter(s=>s.id===subFilter) : getOrderedSubjects();
-  subjectsToShow.forEach(s=>{ if(!groups[s.id]) groups[s.id] = []; });
-
-  if(Object.keys(groups).length === 0){
-    root.innerHTML = `<div class="empty">Inga ämnen eller anteckningar än.</div>`;
-    return;
-  }
+  const showBreadcrumb = searchScope !== "subcat";
 
   let html = "";
-  const orderedKeys = [...subjectsToShow.map(s=>s.id), ...Object.keys(groups).filter(k=>!subjects.some(s=>s.id===k))];
-  orderedKeys.forEach(key=>{
-    const subject = subjects.find(s=>s.id===key);
-    const subjectName = subject ? subject.name : "Övrigt";
-    const groupItems = groups[key] || [];
-    html += `<div class="subject-group">
-      <h3>${escapeHtml(subjectName)} <span class="rm" data-delsub="${key}">${subject ? "ta bort ämne" : ""}</span></h3>
-      <ul class="entries">`;
+  if(selSubjectId){
+    html += `<div class="subject-add-row" style="margin:2px 0 10px;">
+        <button type="button" class="btn-secondary" id="btnNewNote" style="flex:1;">➕ Lägg till notering</button>
+      </div>`;
+  }
 
-    if(groupItems.length === 0){
-      html += `<li class="entry"><span class="empty" style="padding:8px 0;">Inga anteckningar i detta ämne.</span></li>`;
-    } else if(viewMode === "edited"){
-      // Platt lista, sorterad efter senast redigerad, ingen undergruppsindelning
-      html += renderEntryItems(sortByEdited(groupItems));
-    } else {
-      // Gruppera per undergrupp; poster utan undergrupp visas först, osparat
-      const bySubcat = {};
-      const noSubcat = [];
-      groupItems.forEach(it=>{
-        if(it.subcatId){ (bySubcat[it.subcatId] = bySubcat[it.subcatId] || []).push(it); }
-        else{ noSubcat.push(it); }
-      });
-      html += renderEntryItems(sortItemsForDisplay(noSubcat));
-      const subcatIds = Object.keys(bySubcat).sort((a,b)=>{
-        const nameA = subcats.find(sc=>sc.id===a)?.name || "";
-        const nameB = subcats.find(sc=>sc.id===b)?.name || "";
-        return nameA.localeCompare(nameB,"sv");
-      });
-      subcatIds.forEach(subcatId=>{
-        const subcatName = subcats.find(sc=>sc.id===subcatId)?.name || "Okänd undergrupp";
-        html += `<li style="list-style:none; margin:10px 0 2px; padding-top:6px; border-top:1px solid var(--line);">
-          <span style="font-family:var(--font-mono); font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--accent); font-weight:700;">${escapeHtml(subcatName)}</span>
-        </li>`;
-        html += renderEntryItems(sortItemsForDisplay(bySubcat[subcatId]));
-      });
+  if(readMode === "new"){
+    html += `<div class="note-row selected" id="newNoteRow" style="display:block;">${noteFormHtml(null)}</div>`;
+  }
+
+  if(filtered.length === 0 && readMode !== "new"){
+    const allForSubject = selSubjectId ? items.filter(it=>it.subjectId===selSubjectId) : [];
+    const rawForSubjectAnyType = allForSubject.length;
+    const rawMatchingType = allForSubject.filter(it=>itemViewType(it)===viewType).length;
+    const inThisExactScope = selSubjectId ? items.filter(it=>{
+      if(itemViewType(it) !== viewType) return false;
+      if(searchScope === "subcat") return it.subjectId===selSubjectId && it.subcatId===selSubcatId;
+      if(searchScope === "subject") return it.subjectId===selSubjectId;
+      return false;
+    }).length : 0;
+    let diag = "";
+    if(selSubjectId && rawForSubjectAnyType > 0){
+      const scopeLabel = searchScope==="subcat" ? `bara undergruppen "${escapeHtml(subcatNameById(selSubcatId))}"` : "hela ämnet (alla undergrupper)";
+      const breakdownRows = allForSubject.map(it=>{
+        const typeLabel = itemViewType(it)==="todo" ? "2do" : "Anteckning";
+        let subcatLabel;
+        if(!it.subcatId){
+          subcatLabel = "— ingen undergrupp —";
+        } else {
+          const sc = subcats.find(s=>s.id===it.subcatId);
+          if(!sc) subcatLabel = "⚠️ trasig undergrupps-referens (finns inte)";
+          else if(sc.subjectId !== it.subjectId) subcatLabel = `⚠️ "${escapeHtml(sc.name)}" (hör till ett ANNAT ämne)`;
+          else subcatLabel = escapeHtml(sc.name);
+        }
+        const textSnippet = escapeHtml((it.text||"").slice(0,50));
+        return `<div style="padding:3px 0; border-bottom:1px dashed var(--line);">
+          <b>${typeLabel}</b> · ${subcatLabel}<br>"${textSnippet}${it.text && it.text.length>50 ? "…" : ""}"
+        </div>`;
+      }).join("");
+      diag = `<div class="note-meta" style="margin-top:8px; opacity:.9; text-align:left;">
+        Diagnostik: ${rawForSubjectAnyType} post(er) totalt för detta ämne i databasen,
+        varav ${rawMatchingType} har typen "${viewType==="todo"?"2do-list":"Anteckningar"}".
+        Nuvarande vy: ${scopeLabel} (${inThisExactScope} matchar just den vyn).
+        <div style="margin-top:8px;">${breakdownRows}</div>
+      </div>`;
     }
-    html += `</ul></div>`;
-  });
+    html += `<div class="empty">${isSearching ? "Inga träffar." : "Inga noteringar här än."}${diag}</div>`;
+  } else {
+    filtered.forEach(it=>{
+      const isSel = selNoteId === it.id;
+      const isTodo = it.type === "todo";
+      const check = isTodo
+        ? `<input type="checkbox" class="note-check" data-toggle="${it.id}" ${it.done?"checked":""}>`
+        : `<span class="note-check">✎</span>`;
+      const snippet = escapeHtml((it.text||"").slice(0,140));
+      let crumbText = "";
+      if(showBreadcrumb){
+        crumbText = searchScope === "global"
+          ? escapeHtml(subjectNameById(it.subjectId)) + (it.subcatId ? " / "+escapeHtml(subcatNameById(it.subcatId)) : "")
+          : (it.subcatId ? escapeHtml(subcatNameById(it.subcatId)) : "Utan undergrupp");
+      }
+      const breadcrumb = crumbText ? `<div class="note-meta" style="width:100%; margin-bottom:3px;">${crumbText}</div>` : "";
+
+      if(isSel){
+        const inner = readMode === "edit" ? noteFormHtml(it) : noteDetailHtml(it);
+        html += `<div class="note-row selected" data-note="${it.id}" style="display:block;">
+          ${breadcrumb}
+          <div class="note-detail-head" data-note-head="${it.id}" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer;">
+            ${check}
+            <div class="note-meta" style="flex:1;">${fmtDate(it.date)}</div>
+          </div>
+          ${inner}
+        </div>`;
+      } else {
+        html += `<div class="note-row ${it.archived?"archived":""}" data-note="${it.id}" style="${breadcrumb?"flex-wrap:wrap;":""}">
+          ${breadcrumb}
+          ${check}
+          <div class="note-snippet ${it.done?"done":""}">${snippet}</div>
+          <div class="note-meta">${fmtDate(it.date)}</div>
+        </div>`;
+      }
+    });
+  }
   root.innerHTML = html;
 
-  function renderEntryItems(list){
-    return list.map(it=>{
-      const isTodo = it.type === "todo";
-      const leading = isTodo
-        ? `<input type="checkbox" class="done-checkbox" data-toggle="${it.id}" ${it.done?"checked":""}>`
-        : `<span class="entry-icon">✎</span>`;
-      const addedDate = fmtDateShort(isoFromMillis(millisOf(it.createdAt)));
-      const todoDates = isTodo
-        ? `<div class="todo-dates">
-             <span class="added-date ${it.done?"done":""}">${addedDate}</span>
-             ${it.doneDate ? `<span class="done-date">${fmtDateShort(it.doneDate)}</span>` : ""}
-           </div>`
-        : "";
-      return `<li class="entry">
-        ${leading}
-        <div class="entry-body">
-          <div class="entry-text ${it.done?"done":""}">${escapeHtml(it.text)}</div>
-          <div class="entry-date">${fmtDate(it.date)}</div>
-        </div>
-        ${todoDates}
-        <button class="entry-edit" data-edit="${it.id}">✏️</button>
-        <button class="entry-del" data-del="${it.id}">🗑</button>
-      </li>`;
-    }).join("");
+  const addBtn = document.getElementById("btnNewNote");
+  if(addBtn) addBtn.addEventListener("click", startNewNote);
+
+  const newRow = document.getElementById("newNoteRow");
+  if(newRow) wireNoteForm(newRow, null);
+
+  if(readMode === "edit" && selNoteId){
+    const selRow = root.querySelector(`[data-note="${selNoteId}"]`);
+    if(selRow) wireNoteForm(selRow, items.find(i=>i.id===selNoteId));
+  }
+  if(readMode === "view" && selNoteId){
+    const doneCheck = root.querySelector("#readDoneCheck");
+    if(doneCheck){
+      const it = items.find(i=>i.id===selNoteId);
+      doneCheck.addEventListener("click", e=>e.stopPropagation());
+      doneCheck.addEventListener("change", async ()=>{
+        await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {
+          done: doneCheck.checked, doneDate: doneCheck.checked ? todayLocal() : null, updatedAt: serverTimestamp()
+        });
+      });
+    }
   }
 
   root.querySelectorAll("[data-toggle]").forEach(cb=>{
+    cb.addEventListener("click", e=>e.stopPropagation());
     cb.addEventListener("change", async ()=>{
       await updateDoc(doc(db,"workspaces",wsId,"items",cb.dataset.toggle), {
         done: cb.checked, doneDate: cb.checked ? todayLocal() : null, updatedAt: serverTimestamp()
       });
     });
   });
-  root.querySelectorAll("[data-del]").forEach(btn=>{
-    btn.addEventListener("click", async ()=>{
-      if(!confirm("Ta bort denna post?")) return;
-      await deleteDoc(doc(db,"workspaces",wsId,"items",btn.dataset.del));
-    });
-  });
-  root.querySelectorAll("[data-edit]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const it = items.find(i=>i.id===btn.dataset.edit);
-      if(it) openEditModal(it);
-    });
-  });
-  root.querySelectorAll("[data-delsub]").forEach(el=>{
-    el.addEventListener("click", ()=>{
-      const subject = subjects.find(s=>s.id===el.dataset.delsub);
-      if(subject) deleteSubject(subject.id, subject.name);
+  root.querySelectorAll("[data-note]").forEach(row=>{
+    row.addEventListener("click", e=>{
+      if(e.target.closest("[data-toggle]") || e.target.closest("a") || e.target.closest("#readTextArea, #readDateInput, #readNoDate, #readSaveBtn, #readCancelBtn")) return;
+      selectNote(row.dataset.note);
     });
   });
 }
 
-/* ---------- Online/offline status ---------- */
-function updateNetStatus(){
-  const dot = document.getElementById("netDot");
-  const txt = document.getElementById("netText");
-  const headerDot = document.getElementById("headerDot");
-  const headerLabel = document.getElementById("netStatusLabel");
-  if(navigator.onLine){
-    dot.classList.remove("off");
-    headerDot.classList.remove("off");
-    txt.textContent = "Ansluten — synkar automatiskt";
-    headerLabel.textContent = "Ansluten";
-  } else {
-    dot.classList.add("off");
-    headerDot.classList.add("off");
-    txt.textContent = "Offline — ändringar synkas när nätet är tillbaka";
-    headerLabel.textContent = "Ej ansluten";
-  }
+/* ---------- Verktygsrad ---------- */
+const btnAddSubject = document.getElementById("btnAddSubject");
+const btnAddSubcat = document.getElementById("btnAddSubcat");
+const btnRename = document.getElementById("btnRename");
+const btnEdit = document.getElementById("btnEdit");
+const btnArchive = document.getElementById("btnArchive");
+const btnDelete = document.getElementById("btnDelete");
+
+function selectionKind(){
+  if(selNoteId) return "note";
+  return selNodeType; // "subject" | "subcat" | null
 }
-window.addEventListener("online", updateNetStatus);
-window.addEventListener("offline", updateNetStatus);
-updateNetStatus();
+function updateToolbarState(){
+  const kind = selectionKind();
+  btnAddSubject.disabled = false;
+  btnAddSubcat.disabled = !(kind==="subject" || kind==="subcat");
+  btnRename.disabled = !(kind==="subject" || kind==="subcat");
+  btnEdit.disabled = !(kind==="note");
+  btnArchive.disabled = !(kind==="subject" || kind==="subcat" || kind==="note");
+  btnDelete.disabled = !(kind==="subject" || kind==="subcat" || kind==="note");
+}
 
-/* ---------- Redigera post ---------- */
-let editingItemId = null;
-let editSelectedType = "note";
-const editOverlay = document.getElementById("editOverlay");
-const editSubject = document.getElementById("editSubject");
-const editSubcat = document.getElementById("editSubcat");
-const editDate = document.getElementById("editDate");
-const editNoDate = document.getElementById("editNoDate");
-
-document.querySelectorAll(".edit-type-btn").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    document.querySelectorAll(".edit-type-btn").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-    editSelectedType = btn.dataset.type;
-    renderEditSubjectOptions();
+btnAddSubject.addEventListener("click", async ()=>{
+  if(!wsId){ toast("Anslut till en grupp först"); return; }
+  const name = prompt("Namn på nytt ämne:");
+  if(!name || !name.trim()) return;
+  const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {
+    name: await encryptText(name.trim()), type: viewType, archived:false, createdAt: serverTimestamp()
   });
-});
-function renderEditSubjectOptions(){
-  const prev = editSubject.value;
-  const relevant = getOrderedSubjectsForType(editSelectedType);
-  editSubject.innerHTML = relevant.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
-  editSubject.value = relevant.some(s=>s.id===prev) ? prev : (relevant[0] ? relevant[0].id : "");
-  renderEditSubcatOptions();
-}
-function renderEditSubcatOptions(){
-  const subjectId = editSubject.value;
-  const relevant = subcats.filter(sc=>sc.subjectId===subjectId).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
-  editSubcat.innerHTML = `<option value="">Ingen undergrupp</option>` + relevant.map(sc=>`<option value="${sc.id}">${escapeHtml(sc.name)}</option>`).join("");
-}
-editSubject.addEventListener("change", renderEditSubcatOptions);
-
-function openEditModal(it){
-  editingItemId = it.id;
-  editSelectedType = it.type === "todo" ? "todo" : "note";
-  document.querySelectorAll(".edit-type-btn").forEach(b=>b.classList.toggle("active", b.dataset.type===editSelectedType));
-  renderEditSubjectOptions();
-  editSubject.value = it.subjectId;
-  renderEditSubcatOptions();
-  editSubcat.value = it.subcatId || "";
-  document.getElementById("editText").value = it.text || "";
-  if(it.date){
-    editDate.value = it.date; editDate.disabled = false; editNoDate.checked = false;
-  } else {
-    editDate.value = todayLocal(); editDate.disabled = true; editNoDate.checked = true;
-  }
-  editOverlay.style.display = "flex";
-}
-document.getElementById("editClose").addEventListener("click", ()=>{ editOverlay.style.display = "none"; });
-editOverlay.addEventListener("click", e=>{ if(e.target===editOverlay) editOverlay.style.display = "none"; });
-editNoDate.addEventListener("change", ()=>{ editDate.disabled = editNoDate.checked; });
-
-document.getElementById("editSaveBtn").addEventListener("click", async ()=>{
-  if(!editingItemId) return;
-  const text = document.getElementById("editText").value.trim();
-  if(!text){ toast("Skriv någon text"); return; }
-  const subjectId = editSubject.value;
-  const subcatId = editSubcat.value || null;
-  const dateVal = editNoDate.checked ? null : editDate.value;
-  const patch = {
-    type: editSelectedType, subjectId, subcatId, text: await encryptText(text), date: dateVal, updatedAt: serverTimestamp()
-  };
-  if(editSelectedType !== "todo"){
-    patch.done = false;
-    patch.doneDate = null;
-  }
-  await updateDoc(doc(db,"workspaces",wsId,"items",editingItemId), patch);
-  editOverlay.style.display = "none";
-  editingItemId = null;
-  toast("Ändringar sparade");
+  expandedSubjects.add(ref.id);
+  selNodeType = "subject"; selSubjectId = ref.id; selSubcatId = null; selNoteId = null; readMode = "empty";
+  toast("Ämne tillagt");
 });
 
+btnAddSubcat.addEventListener("click", async ()=>{
+  if(btnAddSubcat.disabled) return;
+  const subjectId = selSubjectId;
+  const name = prompt("Namn på ny undergrupp:");
+  if(!name || !name.trim()) return;
+  const ref = await addDoc(collection(db,"workspaces",wsId,"subcats"), {
+    subjectId, name: await encryptText(name.trim()), archived:false, createdAt: serverTimestamp()
+  });
+  expandedSubjects.add(subjectId);
+  selNodeType = "subcat"; selSubjectId = subjectId; selSubcatId = ref.id; selNoteId = null; readMode = "empty";
+  toast("Undergrupp tillagd");
+});
+
+btnRename.addEventListener("click", async ()=>{
+  if(btnRename.disabled) return;
+  if(selNodeType === "subject"){
+    const subj = currentSubject();
+    if(!subj) return;
+    const name = prompt("Nytt namn på ämnet:", subj.name);
+    if(!name || !name.trim()) return;
+    await updateDoc(doc(db,"workspaces",wsId,"subjects",subj.id), {name: await encryptText(name.trim())});
+    toast("Ämne omdöpt");
+  } else if(selNodeType === "subcat"){
+    const sc = currentSubcat();
+    if(!sc) return;
+    const name = prompt("Nytt namn på undergruppen:", sc.name);
+    if(!name || !name.trim()) return;
+    await updateDoc(doc(db,"workspaces",wsId,"subcats",sc.id), {name: await encryptText(name.trim())});
+    toast("Undergrupp omdöpt");
+  }
+});
+
+btnEdit.addEventListener("click", ()=>{
+  if(btnEdit.disabled) return;
+  startEditNote();
+});
+
+btnArchive.addEventListener("click", async ()=>{
+  if(btnArchive.disabled) return;
+  const kind = selectionKind();
+  if(kind === "subject"){
+    const subj = currentSubject();
+    if(!subj) return;
+    await updateDoc(doc(db,"workspaces",wsId,"subjects",subj.id), {archived: !subj.archived});
+    toast(subj.archived ? "Ämne återställt" : "Ämne arkiverat");
+  } else if(kind === "subcat"){
+    const sc = currentSubcat();
+    if(!sc) return;
+    await updateDoc(doc(db,"workspaces",wsId,"subcats",sc.id), {archived: !sc.archived});
+    toast(sc.archived ? "Undergrupp återställd" : "Undergrupp arkiverad");
+  } else if(kind === "note"){
+    const it = items.find(i=>i.id===selNoteId);
+    if(!it) return;
+    await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {archived: !it.archived, updatedAt: serverTimestamp()});
+    toast(it.archived ? "Notering återställd" : "Notering arkiverad");
+  }
+});
+
+btnDelete.addEventListener("click", async ()=>{
+  if(btnDelete.disabled) return;
+  const kind = selectionKind();
+  if(kind === "subject"){
+    const subj = currentSubject();
+    if(!subj) return;
+    await deleteSubject(subj.id, subj.name);
+    selNodeType = null; selSubjectId = null; selSubcatId = null; selNoteId = null; readMode = "empty";
+    renderAll();
+  } else if(kind === "subcat"){
+    const sc = currentSubcat();
+    if(!sc) return;
+    await deleteSubcat(sc.id, sc.name);
+    selNodeType = "subject"; selSubcatId = null; selNoteId = null; readMode = "empty";
+    renderAll();
+  } else if(kind === "note"){
+    const it = items.find(i=>i.id===selNoteId);
+    if(!it) return;
+    if(!(await customConfirm("Ta bort denna notering?"))) return;
+    await deleteDoc(doc(db,"workspaces",wsId,"items",it.id));
+    selNoteId = null; readMode = "empty";
+    renderAll();
+  }
+});
 /* ---------- QR modal (app-delning + gruppkod) ---------- */
 const qrOverlay = document.getElementById("qrOverlay");
 document.getElementById("qrClose").addEventListener("click", ()=>qrOverlay.style.display="none");
