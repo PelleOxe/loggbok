@@ -87,7 +87,7 @@
     color:var(--ink-soft); font-family:var(--font-body); font-weight:600; font-size:14px; cursor:pointer;
   }
   .chip-toggle button.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
-  .checkline{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; color:var(--ink-soft);}
+  .checkline{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; color:inherit; opacity:.85;}
   .btn-primary{
     margin-top:18px; width:100%; padding:12px; background:var(--accent); color:var(--accent-ink);
     border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font-body);
@@ -164,10 +164,8 @@
   .entry-icon{width:20px; flex:none; text-align:center; color:var(--ink-soft); margin-top:1px;}
   .todo-dates{
     display:flex; align-items:center; gap:8px; flex:none; margin-left:4px; margin-top:2px;
-    font-family:var(--font-mono); font-size:12px; color:var(--ink-soft); white-space:nowrap;
+    font-family:var(--font-mono); font-size:12px; color:inherit; opacity:.8; white-space:nowrap;
   }
-  .todo-dates .added-date.done{color:var(--done);}
-  .todo-dates .done-date{color:var(--done);}
   .entry-body{flex:1; min-width:0;}
   .entry-text{font-size:15px; line-height:1.35; word-break:break-word; white-space:pre-wrap;}
   .entry-text.done{text-decoration:line-through; color:var(--ink-soft);}
@@ -2768,7 +2766,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.3.14";
+const APP_VERSION = "1.3.15";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3594,42 +3592,7 @@ function renderList(){
   }
 
   if(filtered.length === 0 && readMode !== "new"){
-    const allForSubject = selSubjectId ? items.filter(it=>it.subjectId===selSubjectId) : [];
-    const rawForSubjectAnyType = allForSubject.length;
-    const rawMatchingType = allForSubject.filter(it=>itemViewType(it)===viewType).length;
-    const inThisExactScope = selSubjectId ? items.filter(it=>{
-      if(itemViewType(it) !== viewType) return false;
-      if(searchScope === "subcat") return it.subjectId===selSubjectId && it.subcatId===selSubcatId;
-      if(searchScope === "subject") return it.subjectId===selSubjectId;
-      return false;
-    }).length : 0;
-    let diag = "";
-    if(selSubjectId && rawForSubjectAnyType > 0){
-      const scopeLabel = searchScope==="subcat" ? `bara undergruppen "${escapeHtml(subcatNameById(selSubcatId))}"` : "hela ämnet (alla undergrupper)";
-      const breakdownRows = allForSubject.map(it=>{
-        const typeLabel = itemViewType(it)==="todo" ? "2do" : "Anteckning";
-        let subcatLabel;
-        if(!it.subcatId){
-          subcatLabel = "— ingen undergrupp —";
-        } else {
-          const sc = subcats.find(s=>s.id===it.subcatId);
-          if(!sc) subcatLabel = "⚠️ trasig undergrupps-referens (finns inte)";
-          else if(sc.subjectId !== it.subjectId) subcatLabel = `⚠️ "${escapeHtml(sc.name)}" (hör till ett ANNAT ämne)`;
-          else subcatLabel = escapeHtml(sc.name);
-        }
-        const textSnippet = escapeHtml((it.text||"").slice(0,50));
-        return `<div style="padding:3px 0; border-bottom:1px dashed var(--line);">
-          <b>${typeLabel}</b> · ${subcatLabel}<br>"${textSnippet}${it.text && it.text.length>50 ? "…" : ""}"
-        </div>`;
-      }).join("");
-      diag = `<div class="note-meta" style="margin-top:8px; opacity:.9; text-align:left;">
-        Diagnostik: ${rawForSubjectAnyType} post(er) totalt för detta ämne i databasen,
-        varav ${rawMatchingType} har typen "${viewType==="todo"?"2do-list":"Anteckningar"}".
-        Nuvarande vy: ${scopeLabel} (${inThisExactScope} matchar just den vyn).
-        <div style="margin-top:8px;">${breakdownRows}</div>
-      </div>`;
-    }
-    html += `<div class="empty">${isSearching ? "Inga träffar." : "Inga noteringar här än."}${diag}</div>`;
+    html += `<div class="empty">${isSearching ? "Inga träffar." : "Inga noteringar här än."}</div>`;
   } else {
     filtered.forEach(it=>{
       const isSel = selNoteId === it.id;
@@ -3648,10 +3611,11 @@ function renderList(){
 
       if(isSel){
         const inner = readMode === "edit" ? noteFormHtml(it) : noteDetailHtml(it);
+        const headMark = isTodo ? `<span class="note-check"></span>` : check;
         html += `<div class="note-row selected" data-note="${it.id}" style="display:block;">
           ${breadcrumb}
           <div class="note-detail-head" data-note-head="${it.id}" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer;">
-            ${check}
+            ${headMark}
             <div class="note-meta" style="flex:1;">${fmtDate(it.date)}</div>
           </div>
           ${inner}
