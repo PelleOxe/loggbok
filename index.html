@@ -87,7 +87,7 @@
     color:var(--ink-soft); font-family:var(--font-body); font-weight:600; font-size:14px; cursor:pointer;
   }
   .chip-toggle button.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
-  .checkline{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; color:inherit; opacity:.85;}
+  .checkline{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; color:inherit;}
   .btn-primary{
     margin-top:18px; width:100%; padding:12px; background:var(--accent); color:var(--accent-ink);
     border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; font-family:var(--font-body);
@@ -204,7 +204,7 @@
   .subject-add-row{display:flex; gap:8px; margin-top:8px;}
   .subject-add-row input{flex:1;}
 
-  /* ---------- Trädvy: Ämne / Undergrupp / Notering ---------- */
+  /* ---------- Trädvy: Mapp / Undermapp / Notering ---------- */
   .browser-toolbar{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;}
   .browser-toolbar button{
     background:var(--bg); border:1px solid var(--line); color:var(--ink); border-radius:8px;
@@ -268,6 +268,7 @@
   .read-header .btn-secondary{padding:7px 12px; font-size:13px;}
   .read-text-view{white-space:pre-wrap; word-break:break-word; font-size:15px; line-height:1.45; padding:4px 2px;}
   .read-text-view.done{text-decoration:line-through; opacity:.65;}
+  .note-row.selected label{color:var(--ink);}
   .read-text-view a{color:inherit; text-decoration:underline; font-weight:700; word-break:break-all;}
 </style>
 </head>
@@ -315,8 +316,8 @@
       </div>
 
       <div class="browser-toolbar">
-        <button type="button" id="btnAddSubject">➕ Lägg till Ämne</button>
-        <button type="button" id="btnAddSubcat">➕ Lägg till undergrupp</button>
+        <button type="button" id="btnAddSubject">➕ Lägg till mapp</button>
+        <button type="button" id="btnAddSubcat">➕ Lägg till undermapp</button>
         <button type="button" id="btnRename">✏️ Byt namn</button>
         <button type="button" id="btnEdit">📝 Redigera</button>
         <button type="button" id="btnArchive">🗄 Arkivera</button>
@@ -326,7 +327,7 @@
       <div class="browser-layout">
         <div class="pane pane-tree" id="treePane">
           <div class="pane-title" id="treePaneTitle">Anteckningar</div>
-          <div id="treeRoot"><div class="empty">Inga ämnen än.</div></div>
+          <div id="treeRoot"><div class="empty">Inga mappar än.</div></div>
         </div>
         <div class="pane pane-list" id="listPane">
           <div class="pane-title" id="listTitle">Noteringar</div>
@@ -335,7 +336,7 @@
             <button type="button" class="status-btn active" data-status="oklara" title="Ej klara">☐</button>
             <button type="button" class="status-btn" data-status="klara" title="Klara">☑</button>
           </div>
-          <div id="listRoot"><div class="empty">Välj en undergrupp eller ett ämne.</div></div>
+          <div id="listRoot"><div class="empty">Välj en mapp eller undermapp.</div></div>
         </div>
       </div>
     </div>
@@ -417,7 +418,7 @@
 
     <h3 style="font-family:var(--font-display); font-size:15px; margin:18px 0 6px;">Kryptering och säkerhet</h3>
     <p class="hint" style="margin-top:0;">
-      Ämnesnamn, undergrupper och all text i anteckningar och 2do-poster krypteras
+      Mappnamn, undermappar och all text i anteckningar och 2do-poster krypteras
       (AES-GCM, 256 bitar) direkt i appen innan de skickas till Firebase. Krypteringsnyckeln
       räknas fram lokalt från din Gruppkod + PIN och skickas eller lagras aldrig hos Firebase —
       bara krypterad text finns i molnet. Datum, klarmarkeringar och typ (anteckning/2do)
@@ -2766,7 +2767,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.3.15";
+const APP_VERSION = "1.3.23";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3092,7 +3093,7 @@ function startWorkspaceListeners(){
   }, err=>console.error(err));
 }
 
-/* ---------- Migrering: äldre ämnen (utan typ) sorteras in under Anteckning/2do-list ---------- */
+/* ---------- Migrering: äldre mappar (utan typ) sorteras in under Anteckning/2do-list ---------- */
 let subjectsLoadedOnce = false, subcatsLoadedOnce = false, itemsLoadedOnce = false;
 let isMigratingSubjectTypes = false;
 async function maybeRunSubjectTypeMigration(){
@@ -3173,12 +3174,12 @@ async function maybeRepairMismatchedSubcatRefs(){
     for(const it of broken){
       const oldSubcat = subcats.find(s=>s.id===it.subcatId);
       if(!oldSubcat){
-        // Undergruppen är borta -> koppla loss, posten blir kvar direkt på ämnet.
+        // Undergruppen är borta -> koppla loss, posten blir kvar direkt på mappen.
         await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {subcatId:null, updatedAt: serverTimestamp()});
         fixedCount++;
         continue;
       }
-      // Leta efter en undergrupp med samma namn som redan hör till postens rätta ämne.
+      // Leta efter en undergrupp med samma namn som redan hör till postens rätta mapp.
       let target = subcats.find(s=>s.subjectId===it.subjectId && s.name===oldSubcat.name);
       if(!target){
         const newRef = await addDoc(collection(db,"workspaces",wsId,"subcats"), {
@@ -3222,17 +3223,19 @@ function subjectLastUsedMillis(subjectId){
 }
 function getOrderedSubjects(){
   const active = subjects.filter(s=>!s.archived);
-  const archived = subjects.filter(s=>s.archived);
+  const archived = subjects.filter(s=>s.archived).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
   const withUsage = active.map(s=>({s, last: subjectLastUsedMillis(s.id)}));
   const byRecency = [...withUsage].sort((a,b)=>b.last - a.last);
   const top5 = byRecency.slice(0,5);
   const top5Ids = new Set(top5.map(x=>x.s.id));
   const rest = withUsage.filter(x=>!top5Ids.has(x.s.id)).sort((a,b)=>a.s.name.localeCompare(b.s.name,"sv"));
-  const archivedSorted = archived.slice().sort((a,b)=>a.name.localeCompare(b.name,"sv"));
-  return [...top5.map(x=>x.s), ...rest.map(x=>x.s), ...archivedSorted];
+  return [...top5.map(x=>x.s), ...rest.map(x=>x.s), ...archived];
 }
 function getOrderedSubjectsForType(type){
-  return getOrderedSubjects().filter(s=>(s.type || "note") === type);
+  return getOrderedSubjects().filter(s=>subjectViewType(s) === type);
+}
+function subjectViewType(s){
+  return s.type === "todo" ? "todo" : "note";
 }
 function getOrderedSubcats(subjectId){
   const relevant = subcats.filter(sc=>sc.subjectId===subjectId);
@@ -3243,8 +3246,8 @@ function getOrderedSubcats(subjectId){
 async function deleteSubject(id, name){
   const hasItems = items.some(i=>i.subjectId===id);
   const msg = hasItems
-    ? `Objektet du försöker radera är inte tomt. Ämnet "${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?`
-    : `Ta bort ämnet "${name}"?`;
+    ? `Mappen är inte tom. Mapp "${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?`
+    : `Ta bort mapp "${name}"?`;
   if(!(await customConfirm(msg))) return;
   for(const it of items.filter(i=>i.subjectId===id)){
     await deleteDoc(doc(db,"workspaces",wsId,"items",it.id));
@@ -3253,19 +3256,19 @@ async function deleteSubject(id, name){
     await deleteDoc(doc(db,"workspaces",wsId,"subcats",sc.id));
   }
   await deleteDoc(doc(db,"workspaces",wsId,"subjects",id));
-  toast("Ämne borttaget");
+  toast("Mapp borttagen");
 }
 async function deleteSubcat(id, name){
   const hasItems = items.some(i=>i.subcatId===id);
   const msg = hasItems
-    ? `Objektet du försöker radera är inte tomt. Undergruppen "${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?`
-    : `Ta bort undergruppen "${name}"?`;
+    ? `Undermappen är inte tom. Undermapp "${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?`
+    : `Ta bort undermapp "${name}"?`;
   if(!(await customConfirm(msg))) return;
   for(const it of items.filter(i=>i.subcatId===id)){
     await deleteDoc(doc(db,"workspaces",wsId,"items",it.id));
   }
   await deleteDoc(doc(db,"workspaces",wsId,"subcats",id));
-  toast("Undergrupp borttagen");
+  toast("Undermapp borttagen");
 }
 function escapeHtml(s){
   return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -3302,9 +3305,11 @@ function sortItemsForDisplay(list){
 let viewType = "note";
 let selNodeType = null;   // "subject" | "subcat" | null
 let selSubjectId = null;
-let selSubcatId = null;   // null = ingen undergrupp (poster direkt under ämnet)
+let selSubcatId = null;   // null = ingen undergrupp
 let selNoteId = null;
 let readMode = "empty";   // "empty" | "view" | "edit" | "new"
+let newNoteLockedSubjectId = null;  // låst vid formuläröppning, ändras inte om renderList körs om
+let newNoteLockedSubcatId = null;
 let expandedSubjects = new Set();
 let filterStatus = "oklara"; // "alla" | "oklara" | "klara" (gäller 2do-list)
 
@@ -3374,7 +3379,7 @@ function renderTree(){
 
   const subjectsToShow = getOrderedSubjectsForType(viewType);
   if(subjectsToShow.length === 0){
-    root.innerHTML = `<div class="empty">Inga ämnen än. Klicka "Lägg till Ämne".</div>`;
+    root.innerHTML = `<div class="empty">Inga mappar än. Klicka "Lägg till mapp".</div>`;
     return;
   }
   let html = "";
@@ -3438,6 +3443,8 @@ function selectNote(id){
 }
 function startNewNote(){
   if(!selSubjectId){ toast("Välj eller skapa ett ämne först"); return; }
+  newNoteLockedSubjectId = selSubjectId;
+  newNoteLockedSubcatId = selNodeType === "subcat" ? selSubcatId : null;
   selNoteId = null;
   readMode = "new";
   renderList();
@@ -3471,14 +3478,31 @@ function noteDetailHtml(it){
 function noteFormHtml(it){
   const dateVal = it && it.date ? it.date : todayLocal();
   const noDate = it ? !it.date : false;
+  // Mapp + Undermapp-dropdowns (bara vid redigering av befintlig post)
+  let moveDropdowns = "";
+  if(it){
+    const activeSubjects = subjects.filter(s=>subjectViewType(s)===itemViewType(it) && !s.archived);
+    const subjOpts = activeSubjects.map(s=>
+      `<option value="${s.id}"${it.subjectId===s.id?" selected":""}>${escapeHtml(s.name)}</option>`
+    ).join("");
+    const relevantSubcats = subcats.filter(sc=>sc.subjectId===it.subjectId && !sc.archived);
+    const subcatOpts = `<option value=""${!it.subcatId?" selected":""}>— Ingen undermapp —</option>`
+      + relevantSubcats.map(sc=>`<option value="${sc.id}"${it.subcatId===sc.id?" selected":""}>${escapeHtml(sc.name)}</option>`).join("");
+    moveDropdowns = `
+      <label for="readSubjectSelect" style="margin-top:10px;">Mapp</label>
+      <select id="readSubjectSelect">${subjOpts}</select>
+      <label for="readSubcatSelect" style="margin-top:8px;">Undermapp</label>
+      <select id="readSubcatSelect">${subcatOpts}</select>`;
+  }
   return `
     <label for="readTextArea" style="margin-top:0;">Text</label>
     <textarea id="readTextArea" style="min-height:120px;">${it ? escapeHtml(it.text) : ""}</textarea>
-    <label for="readDateInput">Datum</label>
+    ${moveDropdowns}
+    <label for="readDateInput" style="margin-top:8px;">Datum</label>
     <input type="date" id="readDateInput" value="${dateVal}" ${noDate?"disabled":""}>
     <div class="checkline">
       <input type="checkbox" id="readNoDate" ${noDate?"checked":""}>
-      <label for="readNoDate" style="margin:0; font-weight:400;">Inget datum</label>
+      <label for="readNoDate" style="margin:0; font-weight:400; color:var(--ink);">Inget datum</label>
     </div>
     <div class="row" style="margin-top:14px;">
       <button class="btn-primary" id="readSaveBtn" style="margin-top:0;">Spara</button>
@@ -3491,22 +3515,43 @@ function wireNoteForm(container, it){
   const noDateBox = container.querySelector("#readNoDate");
   const textArea = container.querySelector("#readTextArea");
   const saveBtn = container.querySelector("#readSaveBtn");
+  const subjSel = container.querySelector("#readSubjectSelect");
+  const subcatSel = container.querySelector("#readSubcatSelect");
+
   noDateBox.addEventListener("change", ()=>{ dateInput.disabled = noDateBox.checked; });
   container.querySelector("#readCancelBtn").addEventListener("click", (e)=>{ e.stopPropagation(); cancelReadEdit(); });
+
+  // När mapp byts -> uppdatera undermapp-listan
+  if(subjSel && subcatSel){
+    subjSel.addEventListener("change", (e)=>{
+      e.stopPropagation();
+      const newSubjId = subjSel.value;
+      const relevantSubcats = subcats.filter(sc=>sc.subjectId===newSubjId && !sc.archived);
+      subcatSel.innerHTML = `<option value="">— Ingen undermapp —</option>`
+        + relevantSubcats.map(sc=>`<option value="${sc.id}">${escapeHtml(sc.name)}</option>`).join("");
+    });
+  }
+
   saveBtn.addEventListener("click", async (e)=>{
     e.stopPropagation();
     const text = textArea.value.trim();
     if(!text){ toast("Skriv någon text"); return; }
     const dateVal = noDateBox.checked ? null : dateInput.value;
     if(it){
+      const newSubjectId = subjSel ? subjSel.value : it.subjectId;
+      const newSubcatId = subcatSel ? (subcatSel.value || null) : it.subcatId;
       await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {
-        text: await encryptText(text), date: dateVal, updatedAt: serverTimestamp()
+        text: await encryptText(text), date: dateVal,
+        subjectId: newSubjectId, subcatId: newSubcatId,
+        updatedAt: serverTimestamp()
       });
-      readMode = "view";
+      // Om posten flyttats till annan mapp, avmarkera den så trädvyn inte blir förvirrad
+      if(newSubjectId !== it.subjectId){ selNoteId = null; readMode = "empty"; }
+      else { readMode = "view"; }
       toast("Ändringar sparade");
     } else {
       const ref = await addDoc(collection(db,"workspaces",wsId,"items"), {
-        subjectId: selSubjectId, subcatId: selNodeType==="subcat" ? selSubcatId : null,
+        subjectId: newNoteLockedSubjectId, subcatId: newNoteLockedSubcatId,
         type: viewType, text: await encryptText(text), date: dateVal, done: false, doneDate: null,
         archived: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
       });
@@ -3538,14 +3583,14 @@ function renderList(){
 
   if(!isSearching && !selSubjectId){
     titleEl.textContent = "Noteringar";
-    root.innerHTML = `<div class="empty">Välj ett ämne eller en undergrupp till vänster.</div>`;
+    root.innerHTML = `<div class="empty">Välj en mapp eller undermapp till vänster.</div>`;
     return;
   }
   if(isSearching && !selSubjectId){
     titleEl.textContent = "Sökresultat — alla " + (viewType==="todo" ? "2do-listor" : "anteckningar");
   }
 
-  // Sökomfattning: undergrupp vald -> bara den undergruppen. Ämne valt -> hela ämnet
+  // Sökomfattning: undermapp vald -> bara den undermappen. Mapp vald -> hela mappen
   // (alla dess undergrupper). Inget valt -> hela trädet för aktuell flik.
   const searchScope = !selSubjectId ? "global" : (selNodeType === "subcat" ? "subcat" : "subject");
 
@@ -3665,7 +3710,7 @@ function renderList(){
   });
   root.querySelectorAll("[data-note]").forEach(row=>{
     row.addEventListener("click", e=>{
-      if(e.target.closest("[data-toggle]") || e.target.closest("a") || e.target.closest("#readTextArea, #readDateInput, #readNoDate, #readSaveBtn, #readCancelBtn")) return;
+      if(e.target.closest("[data-toggle]") || e.target.closest("a") || e.target.closest("#readTextArea, #readDateInput, #readNoDate, #readSubjectSelect, #readSubcatSelect, #readSaveBtn, #readCancelBtn")) return;
       selectNote(row.dataset.note);
     });
   });
@@ -3695,27 +3740,27 @@ function updateToolbarState(){
 
 btnAddSubject.addEventListener("click", async ()=>{
   if(!wsId){ toast("Anslut till en grupp först"); return; }
-  const name = prompt("Namn på nytt ämne:");
+  const name = prompt("Namn på ny mapp:");
   if(!name || !name.trim()) return;
   const ref = await addDoc(collection(db,"workspaces",wsId,"subjects"), {
     name: await encryptText(name.trim()), type: viewType, archived:false, createdAt: serverTimestamp()
   });
   expandedSubjects.add(ref.id);
   selNodeType = "subject"; selSubjectId = ref.id; selSubcatId = null; selNoteId = null; readMode = "empty";
-  toast("Ämne tillagt");
+  toast("Mapp tillagd");
 });
 
 btnAddSubcat.addEventListener("click", async ()=>{
   if(btnAddSubcat.disabled) return;
   const subjectId = selSubjectId;
-  const name = prompt("Namn på ny undergrupp:");
+  const name = prompt("Namn på ny undermapp:");
   if(!name || !name.trim()) return;
   const ref = await addDoc(collection(db,"workspaces",wsId,"subcats"), {
     subjectId, name: await encryptText(name.trim()), archived:false, createdAt: serverTimestamp()
   });
   expandedSubjects.add(subjectId);
   selNodeType = "subcat"; selSubjectId = subjectId; selSubcatId = ref.id; selNoteId = null; readMode = "empty";
-  toast("Undergrupp tillagd");
+  toast("Undermapp tillagd");
 });
 
 btnRename.addEventListener("click", async ()=>{
@@ -3723,17 +3768,17 @@ btnRename.addEventListener("click", async ()=>{
   if(selNodeType === "subject"){
     const subj = currentSubject();
     if(!subj) return;
-    const name = prompt("Nytt namn på ämnet:", subj.name);
+    const name = prompt("Nytt namn på mappen:", subj.name);
     if(!name || !name.trim()) return;
     await updateDoc(doc(db,"workspaces",wsId,"subjects",subj.id), {name: await encryptText(name.trim())});
-    toast("Ämne omdöpt");
+    toast("Mapp omdöpt");
   } else if(selNodeType === "subcat"){
     const sc = currentSubcat();
     if(!sc) return;
-    const name = prompt("Nytt namn på undergruppen:", sc.name);
+    const name = prompt("Nytt namn på undermappen:", sc.name);
     if(!name || !name.trim()) return;
     await updateDoc(doc(db,"workspaces",wsId,"subcats",sc.id), {name: await encryptText(name.trim())});
-    toast("Undergrupp omdöpt");
+    toast("Undermapp omdöpt");
   }
 });
 
@@ -3749,12 +3794,12 @@ btnArchive.addEventListener("click", async ()=>{
     const subj = currentSubject();
     if(!subj) return;
     await updateDoc(doc(db,"workspaces",wsId,"subjects",subj.id), {archived: !subj.archived});
-    toast(subj.archived ? "Ämne återställt" : "Ämne arkiverat");
+    toast(subj.archived ? "Mapp återställd" : "Mapp arkiverad");
   } else if(kind === "subcat"){
     const sc = currentSubcat();
     if(!sc) return;
     await updateDoc(doc(db,"workspaces",wsId,"subcats",sc.id), {archived: !sc.archived});
-    toast(sc.archived ? "Undergrupp återställd" : "Undergrupp arkiverad");
+    toast(sc.archived ? "Undermapp återställd" : "Undermapp arkiverad");
   } else if(kind === "note"){
     const it = items.find(i=>i.id===selNoteId);
     if(!it) return;
