@@ -2767,7 +2767,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.3.23";
+const APP_VERSION = "1.3.25";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3555,9 +3555,17 @@ function wireNoteForm(container, it){
         type: viewType, text: await encryptText(text), date: dateVal, done: false, doneDate: null,
         archived: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
       });
+      console.log("NY POST SPARAD:", {subjectId: newNoteLockedSubjectId, subcatId: newNoteLockedSubcatId, type: viewType, id: ref.id});
+      const savedSubj = subjects.find(s=>s.id===newNoteLockedSubjectId);
+      const savedSc = newNoteLockedSubcatId ? subcats.find(sc=>sc.id===newNoteLockedSubcatId) : null;
+      toast(`Sparat i: ${savedSubj?savedSubj.name:"?"} ${savedSc?" / "+savedSc.name:""}`);
+      // Navigera till rätt mapp/undermapp i trädet så posten syns direkt
+      selSubjectId = newNoteLockedSubjectId;
+      selSubcatId = newNoteLockedSubcatId;
+      selNodeType = newNoteLockedSubcatId ? "subcat" : "subject";
+      expandedSubjects.add(newNoteLockedSubjectId);
       selNoteId = ref.id;
       readMode = "view";
-      toast("Sparat");
     }
     renderList(); updateToolbarState();
   });
