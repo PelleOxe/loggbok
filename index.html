@@ -2767,7 +2767,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.4.01";
+const APP_VERSION = "1.4.02";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3494,10 +3494,16 @@ function noteFormHtml(it){
     const subcatOpts = `<option value=""${!it.subcatId?" selected":""}>— Ingen undermapp —</option>`
       + relevantSubcats.map(sc=>`<option value="${sc.id}"${it.subcatId===sc.id?" selected":""}>${escapeHtml(sc.name)}</option>`).join("");
     moveDropdowns = `
-      <label for="readSubjectSelect" style="margin-top:10px;">Mapp</label>
-      <select id="readSubjectSelect">${subjOpts}</select>
-      <label for="readSubcatSelect" style="margin-top:8px;">Undermapp</label>
-      <select id="readSubcatSelect">${subcatOpts}</select>`;
+      <div style="display:flex; gap:8px; margin-top:10px; align-items:flex-end;">
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+          <label for="readSubjectSelect" style="margin:0;">Mapp</label>
+          <select id="readSubjectSelect" style="margin:0;">${subjOpts}</select>
+        </div>
+        <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
+          <label for="readSubcatSelect" style="margin:0;">Undermapp</label>
+          <select id="readSubcatSelect" style="margin:0;">${subcatOpts}</select>
+        </div>
+      </div>`;
   }
   return `
     <label for="readTextArea" style="margin-top:0;">Text</label>
