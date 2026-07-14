@@ -97,6 +97,11 @@
   .btn-secondary{
     padding:10px 14px; background:none; border:1px solid var(--line); color:var(--ink); border-radius:8px;
     cursor:pointer; font-size:14px; font-family:var(--font-body);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .btn-secondary:not(:disabled):active{
+    transform: translateY(2px) scale(0.97);
+    box-shadow: 0 1px 2px rgba(0,0,0,.15);
   }
   /* Tabs: stående = bar direkt ovanför innehållet, liggande = spalt direkt till vänster */
   nav.tabbar{
@@ -431,6 +436,10 @@
 
     <h3 style="font-family:var(--font-display); font-size:15px; margin:18px 0 6px;">Version</h3>
     <p class="hint" style="margin-top:0;">Loggbok v<span id="aboutVersion"></span> · © <span id="aboutYear"></span> Per Andersson</p>
+    <div style="display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;">
+      <button class="btn-secondary" id="checkUpdateBtn" style="padding:7px 14px; font-size:13px;">🔄 Sök uppdatering</button>
+      <span id="updateStatus" style="font-size:13px; color:var(--ink-soft);"></span>
+    </div>
   </div>
 </div>
 
@@ -2767,7 +2776,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.4.02";
+const APP_VERSION = "1.4.05";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2943,6 +2952,100 @@ document.getElementById("aboutBtn").addEventListener("click", ()=>{
 });
 document.getElementById("aboutClose").addEventListener("click", ()=>{ aboutOverlay.style.display = "none"; });
 aboutOverlay.addEventListener("click", e=>{ if(e.target===aboutOverlay) aboutOverlay.style.display = "none"; });
+
+/* ---------- Uppdateringskontroll ---------- */
+const UPDATE_CHECK_KEY = "loggbok-update-available";
+
+// Extraherar versionssträngen ur nedladdad HTML-text
+function extractVersion(html){
+  const m = html.match(/const APP_VERSION\s*=\s*"([^"]+)"/);
+  return m ? m[1] : null;
+}
+
+// Jämför semver-liknande strängar: "1.4.02" > "1.4.01" → true
+function isNewer(remote, local){
+  const r = remote.split(".").map(Number);
+  const l = local.split(".").map(Number);
+  for(let i = 0; i < Math.max(r.length, l.length); i++){
+    const rd = r[i] || 0, ld = l[i] || 0;
+    if(rd > ld) return true;
+    if(rd < ld) return false;
+  }
+  return false;
+}
+
+// Hämtar URL, returnerar { version, html } eller null vid fel
+async function fetchRemote(){
+  try{
+    const url = location.href.split("?")[0];
+    const res = await fetch(url + "?_cb=" + Date.now(), { cache: "no-store" });
+    if(!res.ok) return null;
+    const html = await res.text();
+    const version = extractVersion(html);
+    return version ? { version, html } : null;
+  } catch(e){ return null; }
+}
+
+// Knappen i Om-modalen
+document.getElementById("checkUpdateBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("checkUpdateBtn");
+  const status = document.getElementById("updateStatus");
+  btn.disabled = true;
+  status.textContent = "Kollar…";
+  const remote = await fetchRemote();
+  if(!remote){
+    status.textContent = "❌ Kunde inte nå servern.";
+    btn.disabled = false;
+    return;
+  }
+  if(isNewer(remote.version, APP_VERSION)){
+    status.textContent = `Uppdaterar till v${remote.version}…`;
+    localStorage.removeItem(UPDATE_CHECK_KEY);
+    // Rensa service worker-cache och ladda om
+    if("serviceWorker" in navigator && navigator.serviceWorker.controller){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if("caches" in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    location.reload(true);
+  } else {
+    status.textContent = "✅ Du har senaste versionen.";
+    btn.disabled = false;
+    localStorage.removeItem(UPDATE_CHECK_KEY);
+  }
+});
+
+// Bakgrundskoll vid start – stör inte, sparar resultat till nästa körning
+(async ()=>{
+  // Om förra körningen hittade en uppdatering – visa notis direkt
+  const pending = localStorage.getItem(UPDATE_CHECK_KEY);
+  if(pending){
+    console.log(`[Loggbok] Uppdatering v${pending} tillgänglig (från förra körningen).`);
+    showUpdateBanner(pending);
+  }
+  // Kör ny koll i bakgrunden
+  const remote = await fetchRemote();
+  if(!remote) return;
+  if(isNewer(remote.version, APP_VERSION)){
+    localStorage.setItem(UPDATE_CHECK_KEY, remote.version);
+    showUpdateBanner(remote.version);
+  } else {
+    localStorage.removeItem(UPDATE_CHECK_KEY);
+  }
+})();
+
+function showUpdateBanner(version){
+  // Undvik dubletter
+  if(document.getElementById("updateBanner")) return;
+  const banner = document.createElement("div");
+  banner.id = "updateBanner";
+  banner.style.cssText = "position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:10px 18px;border-radius:20px;font-size:13px;box-shadow:0 3px 12px rgba(0,0,0,.25);display:flex;align-items:center;gap:10px;z-index:9999;white-space:nowrap;";
+  banner.innerHTML = `<span>🆕 v${version} tillgänglig</span><button onclick="document.getElementById('checkUpdateBtn').click();document.getElementById('aboutBtn').click();" style="background:rgba(255,255,255,.25);border:none;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:12px;color:inherit;">Uppdatera</button><button onclick="this.parentElement.remove();" style="background:none;border:none;cursor:pointer;font-size:16px;color:inherit;padding:0 2px;">✕</button>`;
+  document.body.appendChild(banner);
+}
 
 /* ---------- Tabs ---------- */
 document.querySelectorAll("nav.tabbar button").forEach(btn=>{
@@ -3313,6 +3416,14 @@ let selSubjectId = null;
 let selSubcatId = null;   // null = ingen undergrupp
 let selNoteId = null;
 let readMode = "empty";   // "empty" | "view" | "edit" | "new"
+let _noteClipboard = "";  // intern urklipp för noteringstext
+
+function updateClipboardBtns(){
+  const copyBtn = document.getElementById("btnCopyNote");
+  const pasteBtn = document.getElementById("btnPasteNote");
+  if(copyBtn) copyBtn.disabled = !(readMode === "view" && selNoteId);
+  if(pasteBtn) pasteBtn.disabled = !(_noteClipboard && (readMode === "edit" || readMode === "new"));
+}
 let newNoteLockedSubjectId = null;  // låst vid formuläröppning, ändras inte om renderList körs om
 let newNoteLockedSubcatId = null;
 let expandedSubjects = new Set();
@@ -3445,6 +3556,7 @@ function selectNote(id){
   readMode = selNoteId ? "view" : "empty";
   renderList();
   updateToolbarState();
+  updateClipboardBtns();
 }
 function startNewNote(){
   if(!selSubjectId){ toast("Välj eller skapa ett ämne först"); return; }
@@ -3454,17 +3566,20 @@ function startNewNote(){
   readMode = "new";
   renderList();
   updateToolbarState();
+  updateClipboardBtns();
 }
 function startEditNote(){
   if(!selNoteId) return;
   readMode = "edit";
   renderList();
   updateToolbarState();
+  updateClipboardBtns();
 }
 function cancelReadEdit(){
   readMode = selNoteId ? "view" : "empty";
   renderList();
   updateToolbarState();
+  updateClipboardBtns();
 }
 
 function noteDetailHtml(it){
@@ -3647,7 +3762,9 @@ function renderList(){
   let html = "";
   if(selSubjectId){
     html += `<div class="subject-add-row" style="margin:2px 0 10px;">
-        <button type="button" class="btn-secondary" id="btnNewNote" style="flex:1;">➕ Lägg till notering</button>
+        <button type="button" class="btn-secondary" id="btnNewNote" style="flex:0 0 60%; min-width:0;">➕ Lägg till notering</button>
+        <button type="button" class="btn-secondary" id="btnCopyNote" title="Kopiera notering" style="flex:1; min-width:0; font-size:17px;" disabled>⎘</button>
+        <button type="button" class="btn-secondary" id="btnPasteNote" title="Klistra in" style="flex:1; min-width:0; font-size:17px;" disabled>📋</button>
       </div>`;
   }
 
@@ -3697,7 +3814,40 @@ function renderList(){
   root.innerHTML = html;
 
   const addBtn = document.getElementById("btnNewNote");
-  if(addBtn) addBtn.addEventListener("click", startNewNote);
+  if(addBtn) addBtn.addEventListener("click", ()=>{
+    startNewNote();
+    updateClipboardBtns();
+  });
+
+  // Kopiera-knapp: aktiv när en notering är markerad (readMode === "view")
+  const copyBtn = document.getElementById("btnCopyNote");
+  if(copyBtn){
+    copyBtn.disabled = !(readMode === "view" && selNoteId);
+    copyBtn.addEventListener("click", ()=>{
+      const it = items.find(i=>i.id===selNoteId);
+      if(!it) return;
+      _noteClipboard = it.text || "";
+      updateClipboardBtns();
+    });
+  }
+
+  // Klistra in-knapp: aktiv när clipboard har innehåll OCH vi är i edit/new-läge
+  const pasteBtn = document.getElementById("btnPasteNote");
+  if(pasteBtn){
+    pasteBtn.disabled = !(_noteClipboard && (readMode === "edit" || readMode === "new"));
+    pasteBtn.addEventListener("click", ()=>{
+      if(!_noteClipboard) return;
+      const ta = document.getElementById("readTextArea");
+      if(!ta) return;
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const val = ta.value;
+      ta.value = val.slice(0, start) + _noteClipboard + val.slice(end);
+      const pos = start + _noteClipboard.length;
+      ta.selectionStart = ta.selectionEnd = pos;
+      ta.focus();
+    });
+  }
 
   const newRow = document.getElementById("newNoteRow");
   if(newRow) wireNoteForm(newRow, null);
