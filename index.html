@@ -324,7 +324,7 @@
         <button type="button" id="btnAddSubject">➕ Lägg till mapp</button>
         <button type="button" id="btnAddSubcat">➕ Lägg till undermapp</button>
         <button type="button" id="btnRename">✏️ Byt namn</button>
-        <button type="button" id="btnEdit">📝 Redigera</button>
+        <button type="button" id="btnEdit">✏️ Redigera</button>
         <button type="button" id="btnArchive">🗄 Arkivera</button>
         <button type="button" id="btnDelete">🗑 Ta bort</button>
       </div>
@@ -2776,7 +2776,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.4.05";
+const APP_VERSION = "1.4.08";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3417,6 +3417,7 @@ let selSubcatId = null;   // null = ingen undergrupp
 let selNoteId = null;
 let readMode = "empty";   // "empty" | "view" | "edit" | "new"
 let _noteClipboard = "";  // intern urklipp för noteringstext
+let moveSubcatMode = false; // true = flytta-panel för undermapp visas
 
 function updateClipboardBtns(){
   const copyBtn = document.getElementById("btnCopyNote");
@@ -3542,6 +3543,7 @@ function renderTree(){
         if(!expandedSubjects.has(subjId)) expandedSubjects.add(subjId);
       }
       selNoteId = null; readMode = "empty";
+      moveSubcatMode = false;
       renderTree(); renderList(); updateToolbarState();
     });
   });
@@ -3711,6 +3713,59 @@ function renderList(){
   const root = document.getElementById("listRoot");
   const titleEl = document.getElementById("listTitle");
 
+  // Flytta-panel för undermapp
+  if(moveSubcatMode && selNodeType === "subcat"){
+    const sc = currentSubcat();
+    if(sc){
+      const otherSubjects = subjects.filter(s => s.id !== sc.subjectId && !s.archived
+        && subjectViewType(s) === viewType);
+      const subjOpts = otherSubjects.map(s =>
+        `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+      titleEl.textContent = "Flytta undermapp";
+      root.innerHTML = `
+        <div style="padding:12px 4px; display:flex; flex-direction:column; gap:10px;">
+          <p style="margin:0; color:var(--ink-soft); font-size:14px;">
+            Flytta <strong>${escapeHtml(sc.name)}</strong> till:
+          </p>
+          <select id="moveScDestSelect" style="width:100%;">${subjOpts}</select>
+          <div class="row" style="margin-top:4px;">
+            <button class="btn-primary" id="moveScSaveBtn" style="margin-top:0;">Flytta</button>
+            <button class="btn-secondary" id="moveScCancelBtn">Avbryt</button>
+          </div>
+        </div>`;
+      document.getElementById("moveScCancelBtn").addEventListener("click", ()=>{
+        moveSubcatMode = false;
+        renderList();
+      }, { once: true });
+      document.getElementById("moveScSaveBtn").addEventListener("click", async ()=>{
+        const btn = document.getElementById("moveScSaveBtn");
+        if(btn) btn.disabled = true;  // förhindra dubbelklick
+        const destSubjId = document.getElementById("moveScDestSelect").value;
+        if(!destSubjId){ toast("Välj en målmapp"); if(btn) btn.disabled = false; return; }
+        // Flytta undermappen
+        await updateDoc(doc(db,"workspaces",wsId,"subcats",sc.id), {
+          subjectId: destSubjId
+        });
+        // Flytta alla noteringar som tillhör denna undermapp med
+        const affectedItems = items.filter(it => it.subcatId === sc.id);
+        await Promise.all(affectedItems.map(it =>
+          updateDoc(doc(db,"workspaces",wsId,"items",it.id), {
+            subjectId: destSubjId,
+            updatedAt: serverTimestamp()
+          })
+        ));
+        const destSubj = subjects.find(s => s.id === destSubjId);
+        toast(`"${sc.name}" flyttad till "${destSubj ? destSubj.name : ""}"`);
+        moveSubcatMode = false;
+        selSubjectId = destSubjId;
+        selSubcatId = sc.id;
+        selNodeType = "subcat";
+        renderTree(); renderList(); updateToolbarState();
+      }, { once: true });
+      return;
+    }
+  }
+
   const searchTerm = searchInput.value.trim().toLowerCase();
   const searchWords = searchTerm.length ? searchTerm.split(/\s+/) : [];
   const isSearching = searchWords.length > 0;
@@ -3827,7 +3882,12 @@ function renderList(){
       const it = items.find(i=>i.id===selNoteId);
       if(!it) return;
       _noteClipboard = it.text || "";
+      // Försök kopiera till systemets urklipp också
+      if(navigator.clipboard && _noteClipboard){
+        navigator.clipboard.writeText(_noteClipboard).catch(()=>{});
+      }
       updateClipboardBtns();
+      toast("Notering kopierad");
     });
   }
 
@@ -3902,7 +3962,7 @@ function updateToolbarState(){
   btnAddSubject.disabled = false;
   btnAddSubcat.disabled = !(kind==="subject" || kind==="subcat");
   btnRename.disabled = !(kind==="subject" || kind==="subcat");
-  btnEdit.disabled = !(kind==="note");
+  btnEdit.disabled = !(kind==="subcat" || kind==="note");
   btnArchive.disabled = !(kind==="subject" || kind==="subcat" || kind==="note");
   btnDelete.disabled = !(kind==="subject" || kind==="subcat" || kind==="note");
 }
@@ -3953,7 +4013,14 @@ btnRename.addEventListener("click", async ()=>{
 
 btnEdit.addEventListener("click", ()=>{
   if(btnEdit.disabled) return;
-  startEditNote();
+  if(selNoteId){
+    // Notering markerad → redigera notisen
+    startEditNote();
+  } else if(selNodeType === "subcat"){
+    // Undermapp markerad → öppna flytta-panel
+    moveSubcatMode = true;
+    renderList();
+  }
 });
 
 btnArchive.addEventListener("click", async ()=>{
