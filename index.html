@@ -19,6 +19,34 @@
     --accent:#4fb3ba; --accent-ink:#0c1417; --stamp:#d16a4e; --line:#2a343a; --done:#6fcf7d;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.35);
   }
+  /* ── HÖST ── ekorre-brunt, lövorange, kastanjrött, mossgrönt */
+  [data-theme="host"]{
+    --bg:#241608; --bg-alt:#3a2210; --surface:#4a2e14; --ink:#f7e8cf; --ink-soft:#c9a870;
+    --accent:#e07b20; --accent-ink:#1a0800; --accent2:#c0392b;
+    --stamp:#d4a017; --line:#6b4520; --done:#7fbf5f;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.45);
+  }
+  /* ── VÅR ── björkgrön, sippblå, körsbärsrosa, ängsgul */
+  [data-theme="var"]{
+    --bg:#f0f8eb; --bg-alt:#e0f2d4; --surface:#ffffff; --ink:#1a3518; --ink-soft:#4a6e42;
+    --accent:#2d7a27; --accent-ink:#ffffff; --accent2:#5b9bd5;
+    --stamp:#c2185b; --line:#aad89a; --done:#1b6620;
+    --shadow:0 1px 2px rgba(26,53,24,.07), 0 4px 14px rgba(26,53,24,.05);
+  }
+  /* ── VINTER ── isblå, snövit, polarnatt, glaciärgrön, frostrosa */
+  [data-theme="vinter"]{
+    --bg:#eaf5fc; --bg-alt:#d2ecf8; --surface:#f6faff; --ink:#0b2840; --ink-soft:#3a6585;
+    --accent:#1255a8; --accent-ink:#ffffff; --accent2:#00897b;
+    --stamp:#7b1fa2; --line:#96c8e6; --done:#00796b;
+    --shadow:0 1px 2px rgba(11,40,64,.08), 0 4px 14px rgba(11,40,64,.06);
+  }
+  /* ── SOMMAR ── solros, vallmo, blåklint, vitklöver, ängsgrön */
+  [data-theme="sommar"]{
+    --bg:#fffce8; --bg-alt:#fff5c0; --surface:#ffffff; --ink:#271800; --ink-soft:#6a4a0e;
+    --accent:#c47d0e; --accent-ink:#ffffff; --accent2:#c62828;
+    --stamp:#5c35a8; --line:#eacf60; --done:#2e7d1e;
+    --shadow:0 1px 2px rgba(39,24,0,.07), 0 4px 14px rgba(39,24,0,.05);
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
@@ -103,6 +131,9 @@
     transform: translateY(2px) scale(0.97);
     box-shadow: 0 1px 2px rgba(0,0,0,.15);
   }
+  .theme-opt.active{
+    background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:700;
+  }
   /* Tabs: stående = bar direkt ovanför innehållet, liggande = spalt direkt till vänster */
   nav.tabbar{
     background:var(--surface); border-bottom:1px solid var(--line);
@@ -113,7 +144,7 @@
     font-size:13px; padding:8px 4px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px;
   }
   nav.tabbar button .ic{font-size:19px;}
-  nav.tabbar button.active{color:var(--accent); font-weight:700;}
+  nav.tabbar button.active{color:var(--accent); font-weight:700; border-bottom:2px solid var(--accent2, var(--accent));}
   @media (orientation:landscape){
     .app-layout{flex-direction:row;}
     nav.tabbar{
@@ -146,7 +177,7 @@
     background:none; border:none; color:var(--accent); font-size:13px; font-weight:600;
     cursor:pointer; padding:8px 0; font-family:var(--font-body); display:block;
   }
-  hr.divider{border:none; border-top:1px solid var(--line); margin:16px 0;}
+  hr.divider{border:none; border-top:2px solid var(--accent2, var(--line)); margin:16px 0; opacity:.35;}
   .search-row{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
   .filters{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
   .filter-group{flex:1; min-width:130px;}
@@ -173,7 +204,7 @@
   }
   .entry-body{flex:1; min-width:0;}
   .entry-text{font-size:15px; line-height:1.35; word-break:break-word; white-space:pre-wrap;}
-  .entry-text.done{text-decoration:line-through; color:var(--ink-soft);}
+  .entry-text.done{text-decoration:line-through; color:var(--done); opacity:.75;}
   .entry-date{font-family:var(--font-mono); font-size:12px; color:var(--ink-soft); margin-top:3px;}
   .entry-del{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:16px; padding:4px;}
   .entry-edit{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:14px; padding:4px;}
@@ -260,7 +291,7 @@
     border-bottom:1px dashed var(--line);
   }
   .note-row:hover{background:var(--bg-alt);}
-  .note-row.selected{background:var(--accent); color:var(--accent-ink);}
+  .note-row.selected{background:var(--accent); color:var(--accent-ink); border-left:3px solid var(--accent2, var(--stamp));}
   .note-row .note-snippet{font-size:13.5px; line-height:1.3; flex:1; min-width:0; white-space:pre-wrap; word-break:break-word;}
   .note-row .note-meta{font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); flex:none;}
   .note-row.selected .note-meta{color:var(--accent-ink);}
@@ -2776,7 +2807,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.4.08";
+const APP_VERSION = "1.4.10";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2934,14 +2965,52 @@ document.getElementById("deviceLabel").textContent = deviceLabel();
 
 /* ---------- Theme ---------- */
 const themeBtn = document.getElementById("themeBtn");
+const THEMES = [
+  { id:"light",  label:"☀️ Ljust"  },
+  { id:"dark",   label:"🌑 Mörkt"  },
+  { id:"host",   label:"🍂 Höst"   },
+  { id:"var",    label:"🌱 Vår"    },
+  { id:"vinter", label:"❄️ Vinter" },
+  { id:"sommar", label:"🌻 Sommar" },
+];
 function applyTheme(t){
   document.body.setAttribute("data-theme", t);
   localStorage.setItem("loggbok-theme", t);
+  // Uppdatera markering i modal om den är öppen
+  document.querySelectorAll(".theme-opt").forEach(b=>{
+    b.classList.toggle("active", b.dataset.t === t);
+  });
 }
 applyTheme(localStorage.getItem("loggbok-theme") || "light");
-themeBtn.addEventListener("click", ()=>{
-  applyTheme(document.body.getAttribute("data-theme") === "light" ? "dark" : "light");
+
+// Bygg temaväljar-modal
+const themePicker = document.createElement("div");
+themePicker.id = "themePicker";
+themePicker.style.cssText = "display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:8000; align-items:center; justify-content:center;";
+themePicker.innerHTML = `
+  <div style="background:var(--surface); border-radius:14px; padding:22px 20px; min-width:240px; box-shadow:var(--shadow); position:relative;">
+    <button id="themePickerClose" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;color:var(--ink-soft);cursor:pointer;">✕</button>
+    <h3 style="margin:0 0 16px; font-family:var(--font-display); font-size:16px;">Välj tema</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      ${THEMES.map(th=>`<button class="btn-secondary theme-opt" data-t="${th.id}" style="padding:10px 8px; font-size:14px; text-align:left;">${th.label}</button>`).join("")}
+    </div>
+  </div>`;
+document.body.appendChild(themePicker);
+
+// Sätt aktiv-markering vid start
+setTimeout(()=>{
+  const cur = document.body.getAttribute("data-theme");
+  document.querySelectorAll(".theme-opt").forEach(b=>{
+    b.classList.toggle("active", b.dataset.t === cur);
+  });
+},0);
+
+document.querySelectorAll(".theme-opt").forEach(b=>{
+  b.addEventListener("click", ()=>{ applyTheme(b.dataset.t); });
 });
+document.getElementById("themePickerClose").addEventListener("click", ()=>{ themePicker.style.display="none"; });
+themePicker.addEventListener("click", e=>{ if(e.target===themePicker) themePicker.style.display="none"; });
+themeBtn.addEventListener("click", ()=>{ themePicker.style.display="flex"; });
 
 /* ---------- Om ---------- */
 const aboutOverlay = document.getElementById("aboutOverlay");
