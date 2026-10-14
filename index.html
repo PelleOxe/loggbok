@@ -109,6 +109,15 @@
   .sym-bar{
     display:flex; gap:5px; flex-wrap:wrap; margin:5px 0 2px;
   }
+  .sym-bar.collapsed{ display:none; }
+  .sym-toggle{
+    display:inline-flex; align-items:center; gap:5px; margin:5px 0 2px; padding:3px 9px;
+    font-size:13px; font-family:var(--font-body); color:var(--ink-soft);
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:6px; cursor:pointer;
+  }
+  .sym-toggle svg{ width:12px; height:12px; transition:transform .15s ease; }
+  .sym-toggle[aria-expanded="true"] svg{ transform:rotate(180deg); }
+  .sym-toggle + .sym-bar{ margin-top:5px; }
   .sym-btn{
     padding:4px 9px; font-size:15px; background:var(--bg-alt);
     border:1px solid var(--line); border-radius:6px; cursor:pointer;
@@ -2817,7 +2826,7 @@ import {
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.4.11";
+const APP_VERSION = "1.5.0";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3704,7 +3713,7 @@ function noteFormHtml(it){
   return `
     <label for="readTextArea" style="margin-top:0;">Text</label>
     <textarea id="readTextArea" style="min-height:120px;">${it ? escapeHtml(it.text) : ""}</textarea>
-    <div class="sym-bar" id="symBar"><button type="button" class="sym-btn" data-sym="°">°</button><button type="button" class="sym-btn" data-sym="½">½</button><button type="button" class="sym-btn" data-sym="¼">¼</button><button type="button" class="sym-btn" data-sym="¾">¾</button><button type="button" class="sym-btn" data-sym="⅓">⅓</button><button type="button" class="sym-btn" data-sym="⅔">⅔</button><button type="button" class="sym-btn" data-sym="→">→</button><button type="button" class="sym-btn" data-sym="←">←</button><button type="button" class="sym-btn" data-sym="↑">↑</button><button type="button" class="sym-btn" data-sym="↓">↓</button><button type="button" class="sym-btn" data-sym="×">×</button><button type="button" class="sym-btn" data-sym="÷">÷</button><button type="button" class="sym-btn" data-sym="±">±</button><button type="button" class="sym-btn" data-sym="≈">≈</button><button type="button" class="sym-btn" data-sym="≤">≤</button><button type="button" class="sym-btn" data-sym="≥">≥</button><button type="button" class="sym-btn" data-sym="π">π</button><button type="button" class="sym-btn" data-sym="√">√</button><button type="button" class="sym-btn" data-sym="²">²</button><button type="button" class="sym-btn" data-sym="³">³</button><button type="button" class="sym-btn" data-sym="…">…</button><button type="button" class="sym-btn" data-sym="–">–</button><button type="button" class="sym-btn" data-sym="—">—</button><button type="button" class="sym-btn" data-sym="•">•</button><button type="button" class="sym-btn" data-sym="✓">✓</button><button type="button" class="sym-btn" data-sym="★">★</button><button type="button" class="sym-btn" data-sym="♥">♥</button><button type="button" class="sym-btn" data-sym="©">©</button><button type="button" class="sym-btn" data-sym="®">®</button><button type="button" class="sym-btn" data-sym="™">™</button><button type="button" class="sym-btn" data-sym="§">§</button><button type="button" class="sym-btn" data-sym="kr">kr</button></div>
+    <button type="button" class="sym-toggle" id="symToggle" aria-expanded="false" aria-controls="symBar" title="Visa specialtecken"><span>Tecken</span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,4 6,8 10,4"/></svg></button><div class="sym-bar collapsed" id="symBar"><button type="button" class="sym-btn" data-sym="°">°</button><button type="button" class="sym-btn" data-sym="½">½</button><button type="button" class="sym-btn" data-sym="¼">¼</button><button type="button" class="sym-btn" data-sym="¾">¾</button><button type="button" class="sym-btn" data-sym="⅓">⅓</button><button type="button" class="sym-btn" data-sym="⅔">⅔</button><button type="button" class="sym-btn" data-sym="→">→</button><button type="button" class="sym-btn" data-sym="←">←</button><button type="button" class="sym-btn" data-sym="↑">↑</button><button type="button" class="sym-btn" data-sym="↓">↓</button><button type="button" class="sym-btn" data-sym="×">×</button><button type="button" class="sym-btn" data-sym="÷">÷</button><button type="button" class="sym-btn" data-sym="±">±</button><button type="button" class="sym-btn" data-sym="≈">≈</button><button type="button" class="sym-btn" data-sym="≤">≤</button><button type="button" class="sym-btn" data-sym="≥">≥</button><button type="button" class="sym-btn" data-sym="π">π</button><button type="button" class="sym-btn" data-sym="√">√</button><button type="button" class="sym-btn" data-sym="²">²</button><button type="button" class="sym-btn" data-sym="³">³</button><button type="button" class="sym-btn" data-sym="…">…</button><button type="button" class="sym-btn" data-sym="–">–</button><button type="button" class="sym-btn" data-sym="—">—</button><button type="button" class="sym-btn" data-sym="•">•</button><button type="button" class="sym-btn" data-sym="✓">✓</button><button type="button" class="sym-btn" data-sym="★">★</button><button type="button" class="sym-btn" data-sym="♥">♥</button><button type="button" class="sym-btn" data-sym="©">©</button><button type="button" class="sym-btn" data-sym="®">®</button><button type="button" class="sym-btn" data-sym="™">™</button><button type="button" class="sym-btn" data-sym="§">§</button><button type="button" class="sym-btn" data-sym="kr">kr</button></div>
     ${moveDropdowns}
     <label for="readDateInput" style="margin-top:8px;">Datum</label>
     <input type="date" id="readDateInput" value="${dateVal}" ${noDate?"disabled":""}>
@@ -3725,6 +3734,17 @@ function wireNoteForm(container, it){
   const saveBtn = container.querySelector("#readSaveBtn");
   const subjSel = container.querySelector("#readSubjectSelect");
 
+  // Symbolraden är normalt infälld; knappen fäller ut/in den
+  const symToggle = container.querySelector("#symToggle");
+  const symBar = container.querySelector("#symBar");
+  if(symToggle && symBar){
+    symToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = symBar.classList.toggle("collapsed") === false;
+      symToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      symToggle.title = open ? "Dölj specialtecken" : "Visa specialtecken";
+    });
+  }
   // Symbolrad – klistrar in tecknet vid markörens position
   container.querySelectorAll(".sym-btn").forEach(btn => {
     btn.addEventListener("click", () => {
