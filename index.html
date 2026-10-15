@@ -2823,10 +2823,10 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
-  query, orderBy, serverTimestamp
+  query, orderBy, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.1";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3433,11 +3433,114 @@ function getOrderedSubjectsForType(type){
 function subjectViewType(s){
   return s.type === "todo" ? "todo" : "note";
 }
-function getOrderedSubcats(subjectId){
-  const relevant = subcats.filter(sc=>sc.subjectId===subjectId);
+/* ---------- Undermappar i flera nivåer ----------
+   En undermapp har alltid subjectId = den översta mappen. Fältet parentSubcatId pekar på
+   en annan undermapp (saknas/null = ligger direkt under mappen). Poster har subcatId = den
+   undermapp de ligger i, på vilken nivå som helst. Tre nivåer: Mapp / Undermapp / Undermapp. */
+const MAX_SUBCAT_DEPTH = 2;
+function subcatParentId(sc){
+  // Effektiv förälder. Saknad, felaktig eller cirkulär förälder räknas som "direkt under mappen",
+  // så att en undermapp aldrig blir osynlig.
+  const pid = sc.parentSubcatId;
+  if(!pid || pid === sc.id) return null;
+  const p = subcats.find(x=>x.id===pid);
+  if(!p || p.subjectId !== sc.subjectId) return null;
+  let cur = p, n = 0;
+  while(cur && n++ < 6){
+    if(cur.id === sc.id) return null;
+    cur = subcats.find(x=>x.id===cur.parentSubcatId);
+  }
+  return p.id;
+}
+function subcatDepth(sc){
+  let d = 1, cur = sc, n = 0;
+  while(n++ < 6){
+    const pid = subcatParentId(cur);
+    if(!pid) break;
+    cur = subcats.find(x=>x.id===pid);
+    if(!cur) break;
+    d++;
+  }
+  return d;
+}
+function subcatHeight(id, guard){
+  guard = guard || 0;
+  if(guard > 6) return 1;
+  let best = 0;
+  subcats.forEach(sc=>{ if(subcatParentId(sc)===id) best = Math.max(best, subcatHeight(sc.id, guard+1)); });
+  return 1 + best;
+}
+function subcatDescendantIds(id){
+  // id själv först, därefter alla undermappar under den
+  const out = [id];
+  for(let i=0; i<out.length; i++){
+    subcats.forEach(sc=>{ if(subcatParentId(sc)===out[i] && !out.includes(sc.id)) out.push(sc.id); });
+  }
+  return out;
+}
+function subcatPathNames(id){
+  const names = []; let cur = subcats.find(x=>x.id===id), n = 0;
+  while(cur && n++ < 7){
+    names.unshift(cur.name);
+    const pid = subcatParentId(cur);
+    cur = pid ? subcats.find(x=>x.id===pid) : null;
+  }
+  return names;
+}
+function subcatRelPath(id, ancestorId){
+  // Sökvägen till id, utan ancestorId och det som ligger ovanför
+  const ids = []; let cur = subcats.find(x=>x.id===id), n = 0;
+  while(cur && n++ < 7){
+    if(cur.id === ancestorId) break;
+    ids.unshift(cur.name);
+    const pid = subcatParentId(cur);
+    cur = pid ? subcats.find(x=>x.id===pid) : null;
+  }
+  return ids.join(" / ");
+}
+function isSubcatArchived(sc){
+  let cur = sc, n = 0;
+  while(cur && n++ < 7){
+    if(cur.archived) return true;
+    const pid = subcatParentId(cur);
+    cur = pid ? subcats.find(x=>x.id===pid) : null;
+  }
+  return false;
+}
+function getOrderedSubcats(subjectId, parentId){
+  parentId = parentId || null;
+  const relevant = subcats.filter(sc=>sc.subjectId===subjectId && subcatParentId(sc)===parentId);
   const active = relevant.filter(sc=>!sc.archived).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
   const archived = relevant.filter(sc=>sc.archived).sort((a,b)=>a.name.localeCompare(b.name,"sv"));
   return [...active, ...archived];
+}
+// Alla icke-arkiverade undermappar i en mapp, i trädordning: [{sc, depth}]
+function subcatFlatList(subjectId){
+  const out = [];
+  (function walk(parentId, depth){
+    getOrderedSubcats(subjectId, parentId).forEach(sc=>{
+      if(sc.archived) return;
+      out.push({sc, depth});
+      walk(sc.id, depth+1);
+    });
+  })(null, 1);
+  return out;
+}
+// <option>-lista för undermappsväljaren i redigeringsformuläret
+function subcatOptionsHtml(subjectId, selectedId){
+  const flat = subcatFlatList(subjectId);
+  let html = `<option value=""${!selectedId?" selected":""}>— Ingen undermapp —</option>`;
+  flat.forEach(({sc})=>{
+    html += `<option value="${sc.id}"${sc.id===selectedId?" selected":""}>${escapeHtml(subcatPathNames(sc.id).join(" / "))}</option>`;
+  });
+  // Postens nuvarande undermapp är arkiverad: behåll den som val, annars flyttas posten tyst ut vid spara
+  if(selectedId && !flat.some(x=>x.sc.id===selectedId)){
+    const cur = subcats.find(x=>x.id===selectedId);
+    if(cur && cur.subjectId===subjectId){
+      html += `<option value="${cur.id}" selected>${escapeHtml(subcatPathNames(cur.id).join(" / "))} (arkiverad)</option>`;
+    }
+  }
+  return html;
 }
 async function deleteSubject(id, name){
   const hasItems = items.some(i=>i.subjectId===id);
@@ -3455,16 +3558,22 @@ async function deleteSubject(id, name){
   toast("Mapp borttagen");
 }
 async function deleteSubcat(id, name){
-  const hasItems = items.some(i=>i.subcatId===id);
-  const msg = hasItems
-    ? `Undermappen är inte tom. Undermapp "${name}" innehåller anteckningar/tasks som också tas bort. Fortsätt?`
+  const ids = subcatDescendantIds(id);
+  const hasItems = items.some(i=>ids.includes(i.subcatId));
+  const hasSub = ids.length > 1;
+  const contents = hasSub && hasItems ? "undermappar och anteckningar/tasks" : (hasSub ? "undermappar" : "anteckningar/tasks");
+  const msg = (hasItems || hasSub)
+    ? `Undermappen är inte tom. Undermapp "${name}" innehåller ${contents} som också tas bort. Fortsätt?`
     : `Ta bort undermapp "${name}"?`;
-  if(!(await customConfirm(msg))) return;
-  for(const it of items.filter(i=>i.subcatId===id)){
+  if(!(await customConfirm(msg))) return false;
+  for(const it of items.filter(i=>ids.includes(i.subcatId))){
     await deleteDoc(doc(db,"workspaces",wsId,"items",it.id));
   }
-  await deleteDoc(doc(db,"workspaces",wsId,"subcats",id));
+  for(const sid of [...ids].reverse()){   // de djupaste först, så inget blir föräldralöst en stund
+    await deleteDoc(doc(db,"workspaces",wsId,"subcats",sid));
+  }
   toast("Undermapp borttagen");
+  return true;
 }
 function escapeHtml(s){
   return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -3516,6 +3625,7 @@ function updateClipboardBtns(){
 let newNoteLockedSubjectId = null;  // låst vid formuläröppning, ändras inte om renderList körs om
 let newNoteLockedSubcatId = null;
 let expandedSubjects = new Set();
+let expandedSubcats = new Set();
 let filterStatus = "oklara"; // "alla" | "oklara" | "klara" (gäller 2do-list)
 
 const searchInput = document.getElementById("searchInput");
@@ -3577,6 +3687,24 @@ function renderAll(){
 }
 
 /* ---------- Träd ---------- */
+function subcatTreeHtml(subjId, parentId){
+  let h = "";
+  getOrderedSubcats(subjId, parentId).forEach(sc=>{
+    const kids = getOrderedSubcats(subjId, sc.id);
+    const hasKids = kids.length > 0;
+    const exp = expandedSubcats.has(sc.id);
+    const isSelSc = selNodeType==="subcat" && selSubcatId===sc.id;
+    h += `<div class="tnode">
+      <div class="tnode-row ${isSelSc?"selected":""} ${isSubcatArchived(sc)?"archived":""}" data-subj="${subjId}" data-subcat="${sc.id}">
+        <span class="tnode-toggle" ${hasKids?`data-toggle-subcat="${sc.id}"`:""}>${hasKids ? (exp ? "▾" : "▸") : ""}</span>
+        <span class="tnode-icon">🗂</span>
+        <span class="tnode-label">${escapeHtml(sc.name)}</span>
+      </div>`;
+    if(hasKids) h += `<div class="tchildren ${exp?"":"collapsed"}">${subcatTreeHtml(subjId, sc.id)}</div>`;
+    h += `</div>`;
+  });
+  return h;
+}
 function renderTree(){
   const root = document.getElementById("treeRoot");
   const titleEl = document.getElementById("treePaneTitle");
@@ -3600,14 +3728,7 @@ function renderTree(){
         <span class="tnode-label">${escapeHtml(subj.name)}</span>
       </div>
       <div class="tchildren ${expanded?"":"collapsed"}">`;
-    subcatsHere.forEach(sc=>{
-      const isSelSc = selNodeType==="subcat" && selSubcatId===sc.id;
-      html += `<div class="tnode-row ${isSelSc?"selected":""} ${sc.archived?"archived":""}" data-subj="${subj.id}" data-subcat="${sc.id}">
-        <span class="tnode-toggle"></span>
-        <span class="tnode-icon">🗂</span>
-        <span class="tnode-label">${escapeHtml(sc.name)}</span>
-      </div>`;
-    });
+    html += subcatTreeHtml(subj.id, null);
     html += `</div></div>`;
   });
   root.innerHTML = html;
@@ -3620,12 +3741,21 @@ function renderTree(){
       renderTree();
     });
   });
+  root.querySelectorAll("[data-toggle-subcat]").forEach(el=>{
+    el.addEventListener("click", e=>{
+      e.stopPropagation();
+      const id = el.dataset.toggleSubcat;
+      if(expandedSubcats.has(id)) expandedSubcats.delete(id); else expandedSubcats.add(id);
+      renderTree();
+    });
+  });
   root.querySelectorAll(".tnode-row").forEach(row=>{
     row.addEventListener("click", ()=>{
       const subjId = row.dataset.subj;
       const subcatId = row.dataset.subcat;
       if(subcatId){
         selNodeType = "subcat"; selSubjectId = subjId; selSubcatId = subcatId;
+        expandedSubcats.add(subcatId);
       } else {
         selNodeType = "subject"; selSubjectId = subjId; selSubcatId = null;
         if(!expandedSubjects.has(subjId)) expandedSubjects.add(subjId);
@@ -3695,9 +3825,7 @@ function noteFormHtml(it){
     const subjOpts = activeSubjects.map(s=>
       `<option value="${s.id}"${it.subjectId===s.id?" selected":""}>${escapeHtml(s.name)}</option>`
     ).join("");
-    const relevantSubcats = subcats.filter(sc=>sc.subjectId===it.subjectId && !sc.archived);
-    const subcatOpts = `<option value=""${!it.subcatId?" selected":""}>— Ingen undermapp —</option>`
-      + relevantSubcats.map(sc=>`<option value="${sc.id}"${it.subcatId===sc.id?" selected":""}>${escapeHtml(sc.name)}</option>`).join("");
+    const subcatOpts = subcatOptionsHtml(it.subjectId, it.subcatId);
     moveDropdowns = `
       <div style="display:flex; gap:8px; margin-top:10px; align-items:flex-end;">
         <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;">
@@ -3768,9 +3896,7 @@ function wireNoteForm(container, it){
     subjSel.addEventListener("change", (e)=>{
       e.stopPropagation();
       const newSubjId = subjSel.value;
-      const relevantSubcats = subcats.filter(sc=>sc.subjectId===newSubjId && !sc.archived);
-      subcatSel.innerHTML = `<option value="">— Ingen undermapp —</option>`
-        + relevantSubcats.map(sc=>`<option value="${sc.id}">${escapeHtml(sc.name)}</option>`).join("");
+      subcatSel.innerHTML = subcatOptionsHtml(newSubjId, null);
     });
   }
 
@@ -3821,7 +3947,7 @@ function wireNoteForm(container, it){
 }
 
 function subjectNameById(id){ const s = subjects.find(s=>s.id===id); return s ? s.name : ""; }
-function subcatNameById(id){ const sc = subcats.find(sc=>sc.id===id); return sc ? sc.name : ""; }
+function subcatNameById(id){ return subcatPathNames(id).join(" / "); }
 
 function renderList(){
   const root = document.getElementById("listRoot");
@@ -3831,10 +3957,22 @@ function renderList(){
   if(moveSubcatMode && selNodeType === "subcat"){
     const sc = currentSubcat();
     if(sc){
-      const otherSubjects = subjects.filter(s => s.id !== sc.subjectId && !s.archived
-        && subjectViewType(s) === viewType);
-      const subjOpts = otherSubjects.map(s =>
-        `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+      const moveHeight = subcatHeight(sc.id);
+      const blockedIds = new Set(subcatDescendantIds(sc.id));
+      const ownParent = subcatParentId(sc);
+      let subjOpts = "";
+      subjects.filter(s => !s.archived && subjectViewType(s) === viewType).forEach(s=>{
+        if(!(s.id === sc.subjectId && !ownParent)){
+          subjOpts += `<option value="s:${s.id}">📁 ${escapeHtml(s.name)}</option>`;
+        }
+        subcatFlatList(s.id).forEach(({sc: d, depth})=>{
+          if(blockedIds.has(d.id)) return;
+          if(ownParent === d.id) return;
+          if(depth + moveHeight > MAX_SUBCAT_DEPTH) return;
+          subjOpts += `<option value="c:${d.id}">🗂 ${escapeHtml(s.name)} / ${escapeHtml(subcatPathNames(d.id).join(" / "))}</option>`;
+        });
+      });
+      if(!subjOpts) subjOpts = `<option value="">(Ingen annan plats att flytta till)</option>`;
       titleEl.textContent = "Flytta undermapp";
       root.innerHTML = `
         <div style="padding:12px 4px; display:flex; flex-direction:column; gap:10px;">
@@ -3854,23 +3992,39 @@ function renderList(){
       document.getElementById("moveScSaveBtn").addEventListener("click", async ()=>{
         const btn = document.getElementById("moveScSaveBtn");
         if(btn) btn.disabled = true;  // förhindra dubbelklick
-        const destSubjId = document.getElementById("moveScDestSelect").value;
-        if(!destSubjId){ toast("Välj en målmapp"); if(btn) btn.disabled = false; return; }
-        // Flytta undermappen
-        await updateDoc(doc(db,"workspaces",wsId,"subcats",sc.id), {
-          subjectId: destSubjId
+        const val = document.getElementById("moveScDestSelect").value;
+        if(!val){ toast("Välj en målplats"); if(btn) btn.disabled = false; return; }
+        let destSubjId, destParentId = null;
+        if(val.startsWith("c:")){
+          const d = subcats.find(x=>x.id===val.slice(2));
+          if(!d){ toast("Målplatsen finns inte längre"); if(btn) btn.disabled = false; return; }
+          destSubjId = d.subjectId; destParentId = d.id;
+        } else {
+          destSubjId = val.slice(2);
+        }
+        // Flytta undermappen, alla undermappar under den och alla noteringar i dem.
+        // Allt i en batch, så att reparationslogiken aldrig ser ett halvt flyttat läge.
+        const ids = subcatDescendantIds(sc.id);
+        const ops = [];
+        ids.forEach(id=>{
+          const upd = {subjectId: destSubjId};
+          if(id === sc.id) upd.parentSubcatId = destParentId;
+          ops.push([doc(db,"workspaces",wsId,"subcats",id), upd]);
         });
-        // Flytta alla noteringar som tillhör denna undermapp med
-        const affectedItems = items.filter(it => it.subcatId === sc.id);
-        await Promise.all(affectedItems.map(it =>
-          updateDoc(doc(db,"workspaces",wsId,"items",it.id), {
-            subjectId: destSubjId,
-            updatedAt: serverTimestamp()
-          })
-        ));
+        items.filter(it => ids.includes(it.subcatId)).forEach(it=>{
+          ops.push([doc(db,"workspaces",wsId,"items",it.id), {subjectId: destSubjId, updatedAt: serverTimestamp()}]);
+        });
+        for(let i=0; i<ops.length; i+=400){            // en batch klarar högst 500 skrivningar
+          const batch = writeBatch(db);
+          ops.slice(i, i+400).forEach(([ref, upd])=>batch.update(ref, upd));
+          await batch.commit();
+        }
         const destSubj = subjects.find(s => s.id === destSubjId);
-        toast(`"${sc.name}" flyttad till "${destSubj ? destSubj.name : ""}"`);
+        const destLabel = (destSubj ? destSubj.name : "") + (destParentId ? " / " + subcatPathNames(destParentId).join(" / ") : "");
+        toast(`"${sc.name}" flyttad till "${destLabel}"`);
         moveSubcatMode = false;
+        expandedSubjects.add(destSubjId);
+        if(destParentId) expandedSubcats.add(destParentId);
         selSubjectId = destSubjId;
         selSubcatId = sc.id;
         selNodeType = "subcat";
@@ -3900,14 +4054,16 @@ function renderList(){
   const subj = selSubjectId ? currentSubject() : null;
   const sc = selNodeType==="subcat" ? currentSubcat() : null;
   if(selSubjectId){
-    const base = sc ? escapeHtml(subj.name)+" / "+escapeHtml(sc.name) : escapeHtml(subj ? subj.name : "");
+    const base = sc ? escapeHtml(subj.name)+" / "+escapeHtml(subcatPathNames(sc.id).join(" / ")) : escapeHtml(subj ? subj.name : "");
     titleEl.innerHTML = isSearching ? base + " — sökresultat" : base;
   }
 
+  // Vald undermapp visar även noteringar i undermappar under den
+  const selSubcatIds = new Set(selNodeType==="subcat" && selSubcatId ? subcatDescendantIds(selSubcatId) : []);
   let filtered = items.filter(it=>{
     if(itemViewType(it) !== viewType) return false;
     if(searchScope === "subcat"){
-      if(it.subjectId !== selSubjectId || it.subcatId !== selSubcatId) return false;
+      if(it.subjectId !== selSubjectId || !selSubcatIds.has(it.subcatId)) return false;
     } else if(searchScope === "subject"){
       if(it.subjectId !== selSubjectId) return false;
     } else if(!isSearching){
@@ -3926,7 +4082,6 @@ function renderList(){
   });
   filtered = sortItemsForDisplay(filtered);
 
-  const showBreadcrumb = searchScope !== "subcat";
 
   let html = "";
   if(selSubjectId){
@@ -3952,7 +4107,10 @@ function renderList(){
         : `<span class="note-check">✎</span>`;
       const snippet = escapeHtml((it.text||"").slice(0,140));
       let crumbText = "";
-      if(showBreadcrumb){
+      if(searchScope === "subcat"){
+        // noteringar direkt i vald undermapp får ingen rad; djupare ner visas vägen dit
+        if(it.subcatId && it.subcatId !== selSubcatId) crumbText = escapeHtml(subcatRelPath(it.subcatId, selSubcatId));
+      } else {
         crumbText = searchScope === "global"
           ? escapeHtml(subjectNameById(it.subjectId)) + (it.subcatId ? " / "+escapeHtml(subcatNameById(it.subcatId)) : "")
           : (it.subcatId ? escapeHtml(subcatNameById(it.subcatId)) : "Utan undergrupp");
@@ -4074,7 +4232,10 @@ function selectionKind(){
 function updateToolbarState(){
   const kind = selectionKind();
   btnAddSubject.disabled = false;
-  btnAddSubcat.disabled = !(kind==="subject" || kind==="subcat");
+  const curSc = kind==="subcat" ? currentSubcat() : null;
+  const atMaxDepth = !!curSc && subcatDepth(curSc) >= MAX_SUBCAT_DEPTH;
+  btnAddSubcat.disabled = !(kind==="subject" || (kind==="subcat" && !atMaxDepth));
+  btnAddSubcat.title = atMaxDepth ? "Undermappar kan ligga högst två nivåer under en mapp" : "";
   btnRename.disabled = !(kind==="subject" || kind==="subcat");
   btnEdit.disabled = !(kind==="subcat" || kind==="note");
   btnArchive.disabled = !(kind==="subject" || kind==="subcat" || kind==="note");
@@ -4095,13 +4256,20 @@ btnAddSubject.addEventListener("click", async ()=>{
 
 btnAddSubcat.addEventListener("click", async ()=>{
   if(btnAddSubcat.disabled) return;
-  const subjectId = selSubjectId;
+  let subjectId = selSubjectId, parentSubcatId = null;
+  if(selNodeType === "subcat"){
+    const parent = currentSubcat();
+    if(!parent) return;
+    if(subcatDepth(parent) >= MAX_SUBCAT_DEPTH){ toast("Undermappar kan ligga högst två nivåer under en mapp"); return; }
+    parentSubcatId = parent.id; subjectId = parent.subjectId;
+  }
   const name = prompt("Namn på ny undermapp:");
   if(!name || !name.trim()) return;
   const ref = await addDoc(collection(db,"workspaces",wsId,"subcats"), {
-    subjectId, name: await encryptText(name.trim()), archived:false, createdAt: serverTimestamp()
+    subjectId, parentSubcatId, name: await encryptText(name.trim()), archived:false, createdAt: serverTimestamp()
   });
   expandedSubjects.add(subjectId);
+  if(parentSubcatId) expandedSubcats.add(parentSubcatId);
   selNodeType = "subcat"; selSubjectId = subjectId; selSubcatId = ref.id; selNoteId = null; readMode = "empty";
   toast("Undermapp tillagd");
 });
@@ -4170,8 +4338,12 @@ btnDelete.addEventListener("click", async ()=>{
   } else if(kind === "subcat"){
     const sc = currentSubcat();
     if(!sc) return;
-    await deleteSubcat(sc.id, sc.name);
-    selNodeType = "subject"; selSubcatId = null; selNoteId = null; readMode = "empty";
+    const parentId = subcatParentId(sc);
+    const deleted = await deleteSubcat(sc.id, sc.name);
+    if(!deleted) return;                              // avbröt i bekräftelsen
+    if(parentId){ selNodeType = "subcat"; selSubcatId = parentId; }
+    else { selNodeType = "subject"; selSubcatId = null; }
+    selNoteId = null; readMode = "empty";
     renderAll();
   } else if(kind === "note"){
     const it = items.find(i=>i.id===selNoteId);
