@@ -409,6 +409,10 @@
       <div class="kv"><span>Ämnen</span><b id="statSubjects">0</b></div>
       <div class="kv"><span>Anteckningar/2do-poster</span><b id="statItems">0</b></div>
       <div class="kv"><span>Enhet</span><b id="deviceLabel">–</b></div>
+      <div class="kv"><span>Väntar på att skickas</span><b id="statPending">0</b></div>
+      <div class="kv"><span>Senast kontakt med servern</span><b id="statLastSync">–</b></div>
+      <button class="btn-primary" id="syncNowBtn" style="margin-top:16px; width:100%;">Synka nu</button>
+      <p class="hint" id="syncResult" style="margin:8px 0 0; font-size:13px; color:var(--ink-soft); line-height:1.5;"></p>
       <button class="btn-secondary" id="shareGroupBtn" style="margin-top:16px; width:100%;">Visa kod för att koppla ny enhet</button>
       <button class="btn-secondary" id="leaveGroupBtn" style="margin-top:10px; width:100%; color:var(--stamp); border-color:var(--stamp);">Byt grupp / logga ut</button>
     </div>
@@ -2823,10 +2827,11 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
-  query, orderBy, serverTimestamp, writeBatch
+  query, orderBy, serverTimestamp, writeBatch,
+  enableNetwork, waitForPendingWrites, getDocsFromServer
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.5.1";
+const APP_VERSION = "1.5.2";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3229,6 +3234,79 @@ signInAnonymously(auth).catch(err=>{
   toast("Kunde inte ansluta till Firebase");
 });
 
+/* ---------- Synkstatus och "Synka nu" ---------- */
+const syncState = { pending: 0, lastSync: null, serverError: false };
+function updateSyncStatus(){
+  const offline = !navigator.onLine;
+  const bad = offline || syncState.serverError;
+  const n = syncState.pending;
+  let label = "Ansluten";
+  if(offline) label = "Offline";
+  else if(syncState.serverError) label = "Ingen kontakt med servern";
+  else if(n > 0) label = `Skickar ${n} ändring${n===1?"":"ar"}…`;
+  const dot = document.getElementById("headerDot");
+  if(dot) dot.classList.toggle("off", bad);
+  const lbl = document.getElementById("netStatusLabel");
+  if(lbl) lbl.textContent = label;
+  const nd = document.getElementById("netDot");
+  if(nd) nd.classList.toggle("off", bad);
+  const nt = document.getElementById("netText");
+  if(nt) nt.textContent = (bad || n > 0) ? label : "Ansluten — synkar automatiskt";
+  const sp = document.getElementById("statPending");
+  if(sp) sp.textContent = n;
+  const sl = document.getElementById("statLastSync");
+  if(sl) sl.textContent = syncState.lastSync
+    ? syncState.lastSync.toLocaleTimeString("sv-SE", {hour:"2-digit", minute:"2-digit", second:"2-digit"}) : "–";
+}
+// Anropas för varje ögonblicksbild av posterna (även när bara metadata ändrats)
+function noteItemsMetadata(snap){
+  syncState.pending = snap.docs.filter(d=>d.metadata.hasPendingWrites).length;
+  if(!snap.metadata.fromCache){ syncState.lastSync = new Date(); syncState.serverError = false; }
+  updateSyncStatus();
+}
+window.addEventListener("online", ()=>{ enableNetwork(db).catch(()=>{}); syncState.serverError = false; updateSyncStatus(); });
+window.addEventListener("offline", updateSyncStatus);
+updateSyncStatus();
+
+async function syncNow(){
+  if(!wsId){ toast("Anslut till en grupp först"); return; }
+  const btn = document.getElementById("syncNowBtn");
+  const out = document.getElementById("syncResult");
+  btn.disabled = true;
+  out.textContent = "Synkar…";
+  try{
+    await enableNetwork(db);                       // ifall nätverket stängts av
+    const pendingBefore = syncState.pending;
+    // 1) Skicka väntande ändringar från den här enheten (högst 15 s)
+    const flushed = await Promise.race([
+      waitForPendingWrites(db).then(()=>true),
+      new Promise(r=>setTimeout(()=>r(false), 15000))
+    ]);
+    // 2) Hämta aktuellt läge direkt från servern; det uppdaterar även den lokala cachen
+    const col = name => collection(db, "workspaces", wsId, name);
+    const [sSubj, sSub, sItems] = await Promise.all([
+      getDocsFromServer(col("subjects")), getDocsFromServer(col("subcats")), getDocsFromServer(col("items"))
+    ]);
+    syncState.serverError = false; syncState.lastSync = new Date();
+    await new Promise(r=>setTimeout(r, 800));      // låt lyssnarna hinna uppdatera listorna
+    let msg = `Servern har ${sSubj.size} mappar, ${sSub.size} undermappar och ${sItems.size} noteringar. `
+            + `Den här enheten visar ${subjects.length}, ${subcats.length} och ${items.length}.`;
+    if(pendingBefore > 0){
+      msg += flushed ? ` ${pendingBefore} väntande ändring${pendingBefore===1?"":"ar"} skickades.`
+                     : ` ${pendingBefore} ändring${pendingBefore===1?"":"ar"} kunde inte skickas ännu (ingen kontakt?).`;
+    }
+    out.textContent = msg;
+  }catch(err){
+    console.error("Synka nu misslyckades", err);
+    syncState.serverError = true;
+    out.textContent = "Kunde inte nå servern. Kontrollera nätverket och försök igen.";
+  }finally{
+    btn.disabled = false;
+    updateSyncStatus();
+  }
+}
+document.getElementById("syncNowBtn").addEventListener("click", syncNow);
+
 /* ---------- Firestore listeners ---------- */
 function startWorkspaceListeners(){
   subjectsLoadedOnce = false; subcatsLoadedOnce = false; itemsLoadedOnce = false;
@@ -3272,7 +3350,11 @@ function startWorkspaceListeners(){
     renderAll();
   }, err=>console.error(err));
 
-  unsubItems = onSnapshot(itemsCol, async snap=>{
+  unsubItems = onSnapshot(itemsCol, { includeMetadataChanges: true }, async snap=>{
+    noteItemsMetadata(snap);
+    // Bara metadata ändrades (t.ex. en ändring har nått servern): innehållet är detsamma, så rita
+    // inte om. Annars kan ett pågående formulär nollställas när servern kvitterar.
+    if(itemsLoadedOnce && snap.docChanges().length === 0) return;
     const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
     const decrypted = await Promise.all(raw.map(async it=>({...it, text: await decryptText(it.text)})));
     items = decrypted.sort((a,b)=>createdAtMillisSafe(b.createdAt)-createdAtMillisSafe(a.createdAt));
