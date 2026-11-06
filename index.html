@@ -2831,7 +2831,7 @@ import {
   enableNetwork, waitForPendingWrites, getDocsFromServer
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.5.3";
+const APP_VERSION = "1.5.4";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3920,7 +3920,7 @@ function noteFormHtml(it){
         </div>
       </div>`;
   }
-  return `
+  return `<div class="note-form">
     <label for="readTextArea" style="margin-top:0;">Text</label>
     <textarea id="readTextArea" style="min-height:120px;">${it ? escapeHtml(it.text) : ""}</textarea>
     <button type="button" class="sym-toggle" id="symToggle" aria-expanded="false" aria-controls="symBar" title="Visa specialtecken"><span>Tecken</span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,4 6,8 10,4"/></svg></button><div class="sym-bar collapsed" id="symBar"><button type="button" class="sym-btn" data-sym="°">°</button><button type="button" class="sym-btn" data-sym="½">½</button><button type="button" class="sym-btn" data-sym="¼">¼</button><button type="button" class="sym-btn" data-sym="¾">¾</button><button type="button" class="sym-btn" data-sym="⅓">⅓</button><button type="button" class="sym-btn" data-sym="⅔">⅔</button><button type="button" class="sym-btn" data-sym="→">→</button><button type="button" class="sym-btn" data-sym="←">←</button><button type="button" class="sym-btn" data-sym="↑">↑</button><button type="button" class="sym-btn" data-sym="↓">↓</button><button type="button" class="sym-btn" data-sym="×">×</button><button type="button" class="sym-btn" data-sym="÷">÷</button><button type="button" class="sym-btn" data-sym="±">±</button><button type="button" class="sym-btn" data-sym="≈">≈</button><button type="button" class="sym-btn" data-sym="≤">≤</button><button type="button" class="sym-btn" data-sym="≥">≥</button><button type="button" class="sym-btn" data-sym="π">π</button><button type="button" class="sym-btn" data-sym="√">√</button><button type="button" class="sym-btn" data-sym="²">²</button><button type="button" class="sym-btn" data-sym="³">³</button><button type="button" class="sym-btn" data-sym="…">…</button><button type="button" class="sym-btn" data-sym="–">–</button><button type="button" class="sym-btn" data-sym="—">—</button><button type="button" class="sym-btn" data-sym="•">•</button><button type="button" class="sym-btn" data-sym="✓">✓</button><button type="button" class="sym-btn" data-sym="★">★</button><button type="button" class="sym-btn" data-sym="♥">♥</button><button type="button" class="sym-btn" data-sym="©">©</button><button type="button" class="sym-btn" data-sym="®">®</button><button type="button" class="sym-btn" data-sym="™">™</button><button type="button" class="sym-btn" data-sym="§">§</button><button type="button" class="sym-btn" data-sym="kr">kr</button></div>
@@ -3935,7 +3935,7 @@ function noteFormHtml(it){
       <button class="btn-primary" id="readSaveBtn" style="margin-top:0;">Spara</button>
       <button class="btn-secondary" id="readCancelBtn">Avbryt</button>
     </div>
-  `;
+  </div>`;
 }
 function wireNoteForm(container, it){
   const dateInput = container.querySelector("#readDateInput");
@@ -4293,7 +4293,7 @@ function renderList(){
   });
   root.querySelectorAll("[data-note]").forEach(row=>{
     row.addEventListener("click", e=>{
-      if(e.target.closest("[data-toggle]") || e.target.closest("a") || e.target.closest("#readTextArea, #readDateInput, #readNoDate, #readSubjectSelect, #readSubcatSelect, #readSaveBtn, #readCancelBtn")) return;
+      if(e.target.closest("[data-toggle]") || e.target.closest("a") || e.target.closest("#readTextArea, #readDateInput, #readNoDate, #readSubjectSelect, #readSubcatSelect, #readSaveBtn, #readCancelBtn, .note-form")) return;
       selectNote(row.dataset.note);
     });
   });
