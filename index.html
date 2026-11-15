@@ -86,7 +86,8 @@
     .icon-btn .btn-label{display:none;}
   }
   .app-layout{flex:1; display:flex; flex-direction:column; width:100%;}
-  main{flex:1; max-width:640px; width:100%; margin:0 auto; padding:16px 16px 24px;}
+  main{flex:1; max-width:1600px; width:100%; margin:0 auto; padding:16px 16px 24px;}
+  #tab-synk{max-width:640px; margin:0 auto;}   /* Synk-fliken behåller smal bredd */
   .card{
     background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
     box-shadow:var(--shadow); padding:16px;
@@ -109,6 +110,13 @@
   .sym-bar{
     display:flex; gap:5px; flex-wrap:wrap; margin:5px 0 2px;
   }
+  .fmt-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:5px 0 2px; }
+  .fmt-row .sym-toggle{ margin:0 0 0 6px; }
+  .fmt-btn{
+    min-width:36px; padding:3px 9px; font-size:14px; font-family:var(--font-body); color:var(--ink);
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:6px; cursor:pointer; line-height:1.4;
+  }
+  .fmt-btn:active{ background:var(--accent); color:var(--accent-ink); }
   .sym-bar.collapsed{ display:none; }
   .sym-toggle{
     display:inline-flex; align-items:center; gap:5px; margin:5px 0 2px; padding:3px 9px;
@@ -272,7 +280,7 @@
   .browser-layout{display:flex; flex-direction:column; gap:10px; min-height:0;}
   @media (min-width:860px){
     .browser-layout{flex-direction:row; height:66vh; min-height:420px;}
-    .pane-tree{flex:0 0 32%; max-width:340px;}
+    .pane-tree{flex:0 0 28%; max-width:380px;}
     .pane-list{flex:1 1 68%;}
   }
   .pane{
@@ -2828,10 +2836,10 @@ import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
   query, orderBy, serverTimestamp, writeBatch,
-  enableNetwork, waitForPendingWrites, getDocsFromServer
+  enableNetwork, disableNetwork, waitForPendingWrites, getDocsFromServer, getDocFromServer
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.5.4";
+const APP_VERSION = "1.6.0";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -2847,7 +2855,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  experimentalAutoDetectLongPolling: true     // hjälper när realtidsströmmen fastnar (iOS, vissa nät)
 });
 
 let currentUser = null;
@@ -3307,6 +3316,23 @@ async function syncNow(){
 }
 document.getElementById("syncNowBtn").addEventListener("click", syncNow);
 
+// iPhone/iPad (och datorer som sovit) kan lämna realtidsströmmen hängande. Starta om anslutningen
+// när appen kommer tillbaka efter en stunds frånvaro; väntande ändringar ligger kvar och skickas.
+let hiddenSince = 0, kicking = false;
+async function kickConnection(){
+  if(kicking || !wsId) return;
+  kicking = true;
+  try{ await disableNetwork(db); await enableNetwork(db); }
+  catch(err){ console.warn("Kunde inte starta om anslutningen", err); }
+  finally{ kicking = false; updateSyncStatus(); }
+}
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "hidden"){ hiddenSince = Date.now(); return; }
+  if(hiddenSince && Date.now() - hiddenSince > 10000) kickConnection();
+  hiddenSince = 0;
+});
+window.addEventListener("pageshow", e => { if(e.persisted) kickConnection(); });
+
 /* ---------- Firestore listeners ---------- */
 function startWorkspaceListeners(){
   subjectsLoadedOnce = false; subcatsLoadedOnce = false; itemsLoadedOnce = false;
@@ -3431,6 +3457,7 @@ async function maybeRunSubjectTypeMigration(){
    inte längre finns alls. Flyttar aldrig bort text/data — kopplar bara om
    referensen till rätt (eller ingen) undergrupp, så posten blir synlig igen. */
 let isRepairingSubcatRefs = false;
+const repairChecked = new Map();   // postens id -> senast verifierad (undviker upprepade serverläsningar)
 async function maybeRepairMismatchedSubcatRefs(){
   if(isRepairingSubcatRefs) return;
   if(!subjectsLoadedOnce || !subcatsLoadedOnce || !itemsLoadedOnce) return;
@@ -3439,19 +3466,44 @@ async function maybeRepairMismatchedSubcatRefs(){
   // där items laddas innan subcats – annars tolkas giltiga subcatId:n felaktigt
   // som borttagna och nollställs i Firestore.
   if(subcats.length === 0 && items.some(it=>it.subcatId)) return;
-  const broken = items.filter(it=>{
+  const now = Date.now();
+  const suspects = items.filter(it=>{
     if(!it.subcatId) return false;
     const sc = subcats.find(s=>s.id===it.subcatId);
-    if(!sc) return true;                      // undergruppen finns inte längre
-    return sc.subjectId !== it.subjectId;      // undergruppen hör till ett annat ämne
-  });
-  if(broken.length === 0) return;
+    if(!sc) return true;                      // undergruppen verkar saknas
+    return sc.subjectId !== it.subjectId;      // undergruppen verkar höra till ett annat ämne
+  }).filter(it => !(repairChecked.get(it.id) > now - 60000));
+  if(suspects.length === 0) return;
   isRepairingSubcatRefs = true;
   let fixedCount = 0;
   try{
-    for(const it of broken){
+    // De lokala listorna kan ligga efter (t.ex. en ny undermapp vars dokument inte hunnit komma fram).
+    // Därför ändras ingenting förrän servern själv bekräftar att kopplingen är fel. Når vi inte
+    // servern görs ingen reparation alls.
+    const broken = [];
+    for(const it of suspects){
+      repairChecked.set(it.id, now);
+      let scS, itS;
+      try{
+        [scS, itS] = await Promise.all([
+          getDocFromServer(doc(db,"workspaces",wsId,"subcats",it.subcatId)),
+          getDocFromServer(doc(db,"workspaces",wsId,"items",it.id))
+        ]);
+      }catch(err){
+        console.warn("Kunde inte verifiera mot servern, reparerar inte nu", err);
+        return;
+      }
+      if(!itS.exists()) continue;
+      const cur = itS.data();
+      if(!cur.subcatId || cur.subcatId !== it.subcatId) continue;     // redan ändrad av någon annan
+      if(!scS.exists()){ broken.push({it, missing:true}); continue; } // bekräftat: undergruppen finns inte
+      if(scS.data().subjectId !== cur.subjectId && subcats.some(s=>s.id===it.subcatId)){
+        broken.push({it, missing:false});                             // bekräftat: fel mapp
+      }
+    }
+    for(const {it, missing} of broken){
       const oldSubcat = subcats.find(s=>s.id===it.subcatId);
-      if(!oldSubcat){
+      if(missing){
         // Undergruppen är borta -> koppla loss, posten blir kvar direkt på mappen.
         await updateDoc(doc(db,"workspaces",wsId,"items",it.id), {subcatId:null, updatedAt: serverTimestamp()});
         fixedCount++;
@@ -3888,7 +3940,7 @@ function noteDetailHtml(it){
   const isTodo = it.type === "todo";
   const addedDate = fmtDateShort(isoFromMillis(millisOf(it.createdAt)));
   return `
-    <div class="read-text-view ${it.done?"done":""}">${linkifyEscaped(escapeHtml(it.text))}</div>
+    <div class="read-text-view ${it.done?"done":""}">${renderNoteText(it.text)}</div>
     ${isTodo ? `<div class="todo-dates" style="margin-top:10px;">
         <label class="checkline" style="margin:0;"><input type="checkbox" id="readDoneCheck" ${it.done?"checked":""}> Klar</label>
         <span class="added-date">Tillagd: ${addedDate}</span>
@@ -3923,7 +3975,7 @@ function noteFormHtml(it){
   return `<div class="note-form">
     <label for="readTextArea" style="margin-top:0;">Text</label>
     <textarea id="readTextArea" style="min-height:120px;">${it ? escapeHtml(it.text) : ""}</textarea>
-    <button type="button" class="sym-toggle" id="symToggle" aria-expanded="false" aria-controls="symBar" title="Visa specialtecken"><span>Tecken</span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,4 6,8 10,4"/></svg></button><div class="sym-bar collapsed" id="symBar"><button type="button" class="sym-btn" data-sym="°">°</button><button type="button" class="sym-btn" data-sym="½">½</button><button type="button" class="sym-btn" data-sym="¼">¼</button><button type="button" class="sym-btn" data-sym="¾">¾</button><button type="button" class="sym-btn" data-sym="⅓">⅓</button><button type="button" class="sym-btn" data-sym="⅔">⅔</button><button type="button" class="sym-btn" data-sym="→">→</button><button type="button" class="sym-btn" data-sym="←">←</button><button type="button" class="sym-btn" data-sym="↑">↑</button><button type="button" class="sym-btn" data-sym="↓">↓</button><button type="button" class="sym-btn" data-sym="×">×</button><button type="button" class="sym-btn" data-sym="÷">÷</button><button type="button" class="sym-btn" data-sym="±">±</button><button type="button" class="sym-btn" data-sym="≈">≈</button><button type="button" class="sym-btn" data-sym="≤">≤</button><button type="button" class="sym-btn" data-sym="≥">≥</button><button type="button" class="sym-btn" data-sym="π">π</button><button type="button" class="sym-btn" data-sym="√">√</button><button type="button" class="sym-btn" data-sym="²">²</button><button type="button" class="sym-btn" data-sym="³">³</button><button type="button" class="sym-btn" data-sym="…">…</button><button type="button" class="sym-btn" data-sym="–">–</button><button type="button" class="sym-btn" data-sym="—">—</button><button type="button" class="sym-btn" data-sym="•">•</button><button type="button" class="sym-btn" data-sym="✓">✓</button><button type="button" class="sym-btn" data-sym="★">★</button><button type="button" class="sym-btn" data-sym="♥">♥</button><button type="button" class="sym-btn" data-sym="©">©</button><button type="button" class="sym-btn" data-sym="®">®</button><button type="button" class="sym-btn" data-sym="™">™</button><button type="button" class="sym-btn" data-sym="§">§</button><button type="button" class="sym-btn" data-sym="kr">kr</button></div>
+    <div class="fmt-row"><button type="button" class="fmt-btn" data-fmt="bold" title="Fet (Ctrl+B)"><b>F</b></button><button type="button" class="fmt-btn" data-fmt="italic" title="Kursiv (Ctrl+I)"><i>K</i></button><button type="button" class="fmt-btn" data-fmt="underline" title="Understruken (Ctrl+U)"><u>U</u></button><button type="button" class="sym-toggle" id="symToggle" aria-expanded="false" aria-controls="symBar" title="Visa specialtecken"><span>Tecken</span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,4 6,8 10,4"/></svg></button></div><div class="sym-bar collapsed" id="symBar"><button type="button" class="sym-btn" data-sym="°">°</button><button type="button" class="sym-btn" data-sym="½">½</button><button type="button" class="sym-btn" data-sym="¼">¼</button><button type="button" class="sym-btn" data-sym="¾">¾</button><button type="button" class="sym-btn" data-sym="⅓">⅓</button><button type="button" class="sym-btn" data-sym="⅔">⅔</button><button type="button" class="sym-btn" data-sym="→">→</button><button type="button" class="sym-btn" data-sym="←">←</button><button type="button" class="sym-btn" data-sym="↑">↑</button><button type="button" class="sym-btn" data-sym="↓">↓</button><button type="button" class="sym-btn" data-sym="×">×</button><button type="button" class="sym-btn" data-sym="÷">÷</button><button type="button" class="sym-btn" data-sym="±">±</button><button type="button" class="sym-btn" data-sym="≈">≈</button><button type="button" class="sym-btn" data-sym="≤">≤</button><button type="button" class="sym-btn" data-sym="≥">≥</button><button type="button" class="sym-btn" data-sym="π">π</button><button type="button" class="sym-btn" data-sym="√">√</button><button type="button" class="sym-btn" data-sym="²">²</button><button type="button" class="sym-btn" data-sym="³">³</button><button type="button" class="sym-btn" data-sym="…">…</button><button type="button" class="sym-btn" data-sym="–">–</button><button type="button" class="sym-btn" data-sym="—">—</button><button type="button" class="sym-btn" data-sym="•">•</button><button type="button" class="sym-btn" data-sym="✓">✓</button><button type="button" class="sym-btn" data-sym="★">★</button><button type="button" class="sym-btn" data-sym="♥">♥</button><button type="button" class="sym-btn" data-sym="©">©</button><button type="button" class="sym-btn" data-sym="®">®</button><button type="button" class="sym-btn" data-sym="™">™</button><button type="button" class="sym-btn" data-sym="§">§</button><button type="button" class="sym-btn" data-sym="kr">kr</button></div>
     ${moveDropdowns}
     <label for="readDateInput" style="margin-top:8px;">Datum</label>
     <input type="date" id="readDateInput" value="${dateVal}" ${noDate?"disabled":""}>
@@ -3936,6 +3988,51 @@ function noteFormHtml(it){
       <button class="btn-secondary" id="readCancelBtn">Avbryt</button>
     </div>
   </div>`;
+}
+/* ---------- Textformatering: **fet**, *kursiv*, __understruket__ ----------
+   Texten sparas som vanlig text med markörer. Markören måste ligga mot text (inte mot mellanslag),
+   och gäller inom en rad. Länkar lämnas orörda. */
+function formatInline(h, plain){
+  return h
+    .replace(/\*\*\*(?=\S)([^\n]*?\S)\*\*\*/g, plain ? "$1" : "<strong><em>$1</em></strong>")
+    .replace(/\*\*(?=\S)([^\n]*?\S)\*\*/g, plain ? "$1" : "<strong>$1</strong>")
+    .replace(/__(?=\S)([^\n]*?\S)__/g, plain ? "$1" : "<u>$1</u>")
+    .replace(/(^|[^*\w])\*(?=\S)([^*\n]*?\S)\*(?![*\w])/g, plain ? "$1$2" : "$1<em>$2</em>");
+}
+function renderNoteText(raw){
+  const anchors = [];
+  let h = linkifyEscaped(escapeHtml(raw || "")).replace(/<a [^>]*>.*?<\/a>/g, m => {
+    anchors.push(m); return "\u0001" + (anchors.length - 1) + "\u0001";
+  });
+  h = formatInline(h, false);
+  return h.replace(/\u0001(\d+)\u0001/g, (_, i) => anchors[+i]);
+}
+function stripFormat(raw){ return formatInline(raw || "", true); }
+
+// Lägger markörer runt markeringen (eller tar bort dem om de redan finns). Utan markering: tomt par vid markören.
+function applyFormat(ta, kind){
+  const mark = kind === "bold" ? "**" : (kind === "italic" ? "*" : "__");
+  const v = ta.value;
+  let s = ta.selectionStart, e = ta.selectionEnd;
+  while(s < e && /\s/.test(v[s])) s++;          // mellanslag ska ligga utanför markörerna
+  while(e > s && /\s/.test(v[e-1])) e--;
+  const sel = v.slice(s, e), L = mark.length;
+  let out, a, b;
+  const before = v.slice(s - L, s), after = v.slice(e, e + L);
+  const single = kind === "italic";
+  const starNeighbour = single && (v[s-L-1] === "*" || v[e+L] === "*");   // **fet** får inte tas för kursiv
+  if(sel && before === mark && after === mark && !starNeighbour){
+    out = v.slice(0, s - L) + sel + v.slice(e + L); a = s - L; b = e - L;
+  } else if(sel.length >= 2*L && sel.startsWith(mark) && sel.endsWith(mark) && !(single && (sel.startsWith("**") || sel.endsWith("**")))){
+    const inner = sel.slice(L, sel.length - L);
+    out = v.slice(0, s) + inner + v.slice(e); a = s; b = s + inner.length;
+  } else {
+    out = v.slice(0, s) + mark + sel + mark + v.slice(e);
+    if(sel){ a = s + L; b = e + L; } else { a = b = s + L; }
+  }
+  ta.value = out;
+  ta.focus();
+  ta.setSelectionRange(a, b);
 }
 function wireNoteForm(container, it){
   const dateInput = container.querySelector("#readDateInput");
@@ -3955,6 +4052,18 @@ function wireNoteForm(container, it){
       symToggle.title = open ? "Dölj specialtecken" : "Visa specialtecken";
     });
   }
+  // Formatering: knapparna F K U och Ctrl/Cmd + B, I, U
+  container.querySelectorAll(".fmt-btn").forEach(btn => {
+    btn.addEventListener("click", () => applyFormat(textArea, btn.dataset.fmt));
+  });
+  textArea.addEventListener("keydown", e => {
+    if(!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    const k = e.key.toLowerCase();
+    const kind = k === "b" ? "bold" : (k === "i" ? "italic" : (k === "u" ? "underline" : null));
+    if(!kind) return;
+    e.preventDefault();
+    applyFormat(textArea, kind);
+  });
   // Symbolrad – klistrar in tecknet vid markörens position
   container.querySelectorAll(".sym-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -4187,7 +4296,7 @@ function renderList(){
       const check = isTodo
         ? `<input type="checkbox" class="note-check" data-toggle="${it.id}" ${it.done?"checked":""}>`
         : `<span class="note-check">✎</span>`;
-      const snippet = escapeHtml((it.text||"").slice(0,140));
+      const snippet = escapeHtml(stripFormat(it.text||"").slice(0,140));
       let crumbText = "";
       if(searchScope === "subcat"){
         // noteringar direkt i vald undermapp får ingen rad; djupare ner visas vägen dit
