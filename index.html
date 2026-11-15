@@ -2839,7 +2839,7 @@ import {
   enableNetwork, disableNetwork, waitForPendingWrites, getDocsFromServer, getDocFromServer
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.6.1";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3723,7 +3723,7 @@ function itemViewType(it){
 function linkifyEscaped(escaped){
   return escaped.replace(/(https?:\/\/[^\s<]+)/g, (url)=>{
     let trail = "";
-    const m = url.match(/[).,!?;:]+$/);
+    const m = url.match(/[).,!?;:*_]+$/);
     if(m){ trail = m[0]; url = url.slice(0, -trail.length); }
     return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trail}`;
   });
@@ -4020,8 +4020,14 @@ function applyFormat(ta, kind){
   let out, a, b;
   const before = v.slice(s - L, s), after = v.slice(e, e + L);
   const single = kind === "italic";
-  const starNeighbour = single && (v[s-L-1] === "*" || v[e+L] === "*");   // **fet** får inte tas för kursiv
-  if(sel && before === mark && after === mark && !starNeighbour){
+  let hasMark = before === mark && after === mark;
+  if(single && hasMark){                    // **fet** (2 stjärnor) är inte kursiv, ***x*** (3) är det
+    let rb = 0, ra = 0;
+    while(v[s-1-rb] === "*") rb++;
+    while(v[e+ra] === "*") ra++;
+    hasMark = Math.min(rb, ra) % 2 === 1;
+  }
+  if(sel && hasMark){
     out = v.slice(0, s - L) + sel + v.slice(e + L); a = s - L; b = e - L;
   } else if(sel.length >= 2*L && sel.startsWith(mark) && sel.endsWith(mark) && !(single && (sel.startsWith("**") || sel.endsWith("**")))){
     const inner = sel.slice(L, sel.length - L);
