@@ -47,6 +47,27 @@
     --stamp:#5c35a8; --line:#eacf60; --done:#2e7d1e;
     --shadow:0 1px 2px rgba(39,24,0,.07), 0 4px 14px rgba(39,24,0,.05);
   }
+  /* ── SKOG ── ljust: mosgrönt, salvia, skogsgrönt (från färgprov 1) */
+  [data-theme="skog"]{
+    --bg:#E3EED4; --bg-alt:#d2e1cb; --surface:#f5f9f0; --ink:#0F2A1D; --ink-soft:#416450;
+    --accent:#375534; --accent-ink:#E3EED4; --accent2:#6B9071;
+    --stamp:#9B3B2A; --line:#AEC3B0; --done:#2F6B3A;
+    --shadow:0 1px 2px rgba(15,42,29,.08), 0 4px 14px rgba(15,42,29,.06);
+  }
+  /* ── GRAFIT ── mörkt: svart, grafit, silvergrått (från färgprov 2) */
+  [data-theme="grafit"]{
+    --bg:#0B0B0B; --bg-alt:#1A1A1A; --surface:#1F1F1F; --ink:#E8E8E8; --ink-soft:#9A9A9A;
+    --accent:#D9D9D9; --accent-ink:#0B0B0B; --accent2:#6B6B6B;
+    --stamp:#E8795E; --line:#333333; --done:#8FD19A;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 4px 14px rgba(0,0,0,.5);
+  }
+  /* ── INDIGO ── mörkt: midnattsblått, indigo, lavendel (från färgprov 3) */
+  [data-theme="indigo"]{
+    --bg:#0B0F1A; --bg-alt:#151635; --surface:#1E1B4B; --ink:#F5F7FF; --ink-soft:#B3ABFA;
+    --accent:#5046E5; --accent-ink:#FFFFFF; --accent2:#8B7CF6;
+    --stamp:#FF8F80; --line:#2B2872; --done:#7EE0A6;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 4px 14px rgba(0,0,0,.5);
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
@@ -2839,7 +2860,7 @@ import {
   enableNetwork, disableNetwork, waitForPendingWrites, getDocsFromServer, getDocFromServer
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.6.1";
+const APP_VERSION = "1.7.0";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3005,6 +3026,9 @@ const THEMES = [
   { id:"var",    label:"🌱 Vår"    },
   { id:"vinter", label:"❄️ Vinter" },
   { id:"sommar", label:"🌻 Sommar" },
+  { id:"skog",   label:"🌲 Skog"   },
+  { id:"grafit", label:"⚫ Grafit"  },
+  { id:"indigo", label:"🔮 Indigo" },
 ];
 function applyTheme(t){
   document.body.setAttribute("data-theme", t);
@@ -3728,10 +3752,16 @@ function linkifyEscaped(escaped){
     return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trail}`;
   });
 }
+/* Ordning: arkiverade sist. Noteringar utan egen ordning (nya, eller aldrig flyttade) ligger överst,
+   sorterade på datum som förut. Noteringar med egen ordning (fältet order) kommer därefter, efter order. */
+let lastDisplayedIds = [];   // ids i den ordning listan visades senast (används av flytta upp/ned)
 function sortItemsForDisplay(list){
   return [...list].sort((a,b)=>{
     const aArch = !!a.archived, bArch = !!b.archived;
     if(aArch !== bArch) return aArch ? 1 : -1;
+    const aOrd = typeof a.order === "number", bOrd = typeof b.order === "number";
+    if(aOrd !== bOrd) return aOrd ? 1 : -1;
+    if(aOrd && bOrd && a.order !== b.order) return a.order - b.order;
     const aHas = !!a.date, bHas = !!b.date;
     if(aHas && bHas) return b.date.localeCompare(a.date);
     if(aHas && !bHas) return -1;
@@ -3750,11 +3780,50 @@ let readMode = "empty";   // "empty" | "view" | "edit" | "new"
 let _noteClipboard = "";  // intern urklipp för noteringstext
 let moveSubcatMode = false; // true = flytta-panel för undermapp visas
 
+function orderMoveState(){
+  const none = {up:false, down:false};
+  if(readMode !== "view" || !selNoteId) return none;
+  if(searchInput.value.trim()) return none;                     // ordningen ändras bara i den fulla listan
+  const i = lastDisplayedIds.indexOf(selNoteId);
+  const cur = items.find(x=>x.id===selNoteId);
+  if(i < 0 || !cur) return none;
+  const ok = j => {
+    if(j < 0 || j >= lastDisplayedIds.length) return false;
+    const o = items.find(x=>x.id===lastDisplayedIds[j]);
+    return !!o && (!!o.archived === !!cur.archived);            // arkiverade ligger alltid sist
+  };
+  return {up: ok(i-1), down: ok(i+1)};
+}
+async function moveNote(dir){
+  const st = orderMoveState();
+  if(dir < 0 ? !st.up : !st.down) return;
+  const ids = lastDisplayedIds.slice();
+  const i = ids.indexOf(selNoteId), j = i + dir;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  // Numrera om hela den visade listan (10, 20, 30 …) så att ordningen blir entydig
+  const ops = [];
+  ids.forEach((id, k)=>{
+    const it = items.find(x=>x.id===id), ord = (k+1)*10;
+    if(it && it.order !== ord) ops.push([doc(db,"workspaces",wsId,"items",id), {order: ord}]);
+  });
+  try{
+    for(let n=0; n<ops.length; n+=400){
+      const batch = writeBatch(db);
+      ops.slice(n, n+400).forEach(([ref, upd])=>batch.update(ref, upd));
+      await batch.commit();
+    }
+  }catch(err){
+    console.error("Kunde inte ändra ordning", err);
+    toast("Kunde inte ändra ordning");
+  }
+}
 function updateClipboardBtns(){
   const copyBtn = document.getElementById("btnCopyNote");
   const pasteBtn = document.getElementById("btnPasteNote");
   if(copyBtn) copyBtn.disabled = !(readMode === "view" && selNoteId);
   if(pasteBtn) pasteBtn.disabled = !(_noteClipboard && (readMode === "edit" || readMode === "new"));
+  const upBtn = document.getElementById("btnMoveUp"), downBtn = document.getElementById("btnMoveDown");
+  if(upBtn && downBtn){ const st = orderMoveState(); upBtn.disabled = !st.up; downBtn.disabled = !st.down; }
 }
 let newNoteLockedSubjectId = null;  // låst vid formuläröppning, ändras inte om renderList körs om
 let newNoteLockedSubcatId = null;
@@ -4278,14 +4347,17 @@ function renderList(){
     return true;
   });
   filtered = sortItemsForDisplay(filtered);
+  lastDisplayedIds = filtered.map(i=>i.id);
 
 
   let html = "";
   if(selSubjectId){
     html += `<div class="subject-add-row" style="margin:2px 0 10px;">
-        <button type="button" class="btn-secondary" id="btnNewNote" style="flex:0 0 60%; min-width:0;">➕ Lägg till notering</button>
+        <button type="button" class="btn-secondary" id="btnNewNote" style="flex:0 0 40%; min-width:0;">➕ Lägg till notering</button>
         <button type="button" class="btn-secondary" id="btnCopyNote" title="Kopiera notering" style="flex:1; min-width:0; font-size:17px;" disabled>⎘</button>
         <button type="button" class="btn-secondary" id="btnPasteNote" title="Klistra in" style="flex:1; min-width:0; font-size:17px;" disabled>📋</button>
+        <button type="button" class="btn-secondary" id="btnMoveUp" title="Flytta noteringen upp" style="flex:1; min-width:0; font-size:17px;" disabled>▲</button>
+        <button type="button" class="btn-secondary" id="btnMoveDown" title="Flytta noteringen ned" style="flex:1; min-width:0; font-size:17px;" disabled>▼</button>
       </div>`;
   }
 
@@ -4376,6 +4448,14 @@ function renderList(){
       ta.selectionStart = ta.selectionEnd = pos;
       ta.focus();
     });
+  }
+
+  const upBtn = document.getElementById("btnMoveUp"), downBtn = document.getElementById("btnMoveDown");
+  if(upBtn && downBtn){
+    const st = orderMoveState();
+    upBtn.disabled = !st.up; downBtn.disabled = !st.down;
+    upBtn.addEventListener("click", ()=>moveNote(-1));
+    downBtn.addEventListener("click", ()=>moveNote(1));
   }
 
   const newRow = document.getElementById("newNoteRow");
