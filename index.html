@@ -345,6 +345,17 @@
   .note-row.selected .note-meta{color:var(--accent-ink);}
   .note-row .note-check{flex:none; margin-top:2px;}
   .note-row .note-snippet.done{text-decoration:line-through; opacity:.65;}
+  /* Minimerat läge: högst 3 rader, resten ersätts av "…". Expanderat läge visar hela texten. */
+  .note-row .note-snippet.clamped{display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden;}
+  .note-row .note-snippet a{color:inherit; text-decoration:underline; word-break:break-all;}
+  .expand-row{display:flex; align-items:center; margin:0 0 8px;}
+  .expand-switch{display:inline-flex; align-items:center; gap:8px; margin:0; cursor:pointer; font-size:13px; font-weight:600; color:var(--ink-soft); user-select:none; position:relative;}
+  .expand-switch input{position:absolute; opacity:0; width:0; height:0;}
+  .expand-switch .slider{position:relative; flex:none; width:40px; height:22px; border-radius:11px; background:var(--line); transition:background .15s;}
+  .expand-switch .slider::after{content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--surface); box-shadow:0 1px 2px rgba(0,0,0,.35); transition:transform .15s;}
+  .expand-switch input:checked + .slider{background:var(--accent);}
+  .expand-switch input:checked + .slider::after{transform:translateX(18px);}
+  .expand-switch input:focus-visible + .slider{outline:2px solid var(--accent); outline-offset:2px;}
   .note-row.archived .note-snippet{color:var(--ink-soft); font-style:italic;}
   .note-row.selected.archived .note-snippet{color:var(--accent-ink);}
   .read-empty{color:var(--ink-soft); font-style:italic; font-size:14px; text-align:center; padding:40px 10px;}
@@ -415,6 +426,9 @@
         </div>
         <div class="pane pane-list" id="listPane">
           <div class="pane-title" id="listTitle">Noteringar</div>
+          <div class="expand-row" id="expandRow">
+            <label class="expand-switch" title="Visa hela noteringarna i listan"><span>Expandera</span><input type="checkbox" id="expandToggle"><span class="slider"></span></label>
+          </div>
           <div class="chip-toggle status-icon-row" id="statusFilterRow" style="margin:0 0 10px; display:none;">
             <button type="button" class="status-btn" data-status="alla" title="Alla">☑☐</button>
             <button type="button" class="status-btn active" data-status="oklara" title="Ej klara">☐</button>
@@ -2860,7 +2874,7 @@ import {
   enableNetwork, disableNetwork, waitForPendingWrites, getDocsFromServer, getDocFromServer
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.7.0";
+const APP_VERSION = "1.7.1";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3754,6 +3768,8 @@ function linkifyEscaped(escaped){
 }
 /* Ordning: arkiverade sist. Noteringar utan egen ordning (nya, eller aldrig flyttade) ligger överst,
    sorterade på datum som förut. Noteringar med egen ordning (fältet order) kommer därefter, efter order. */
+let expandAll = false;       // false = minimerat (3 rader), true = hela noteringarna i listan
+try{ expandAll = localStorage.getItem("loggbok-expand") === "1"; }catch(e){}
 let lastDisplayedIds = [];   // ids i den ordning listan visades senast (används av flytta upp/ned)
 function sortItemsForDisplay(list){
   return [...list].sort((a,b)=>{
@@ -3845,6 +3861,13 @@ searchClear.addEventListener("click", ()=>{
 });
 
 const statusFilterRow = document.getElementById("statusFilterRow");
+const expandToggle = document.getElementById("expandToggle");
+expandToggle.checked = expandAll;
+expandToggle.addEventListener("change", () => {
+  expandAll = expandToggle.checked;
+  try{ localStorage.setItem("loggbok-expand", expandAll ? "1" : "0"); }catch(e){}
+  renderList();
+});
 document.querySelectorAll(".status-btn").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     document.querySelectorAll(".status-btn").forEach(b=>b.classList.remove("active"));
@@ -4374,7 +4397,7 @@ function renderList(){
       const check = isTodo
         ? `<input type="checkbox" class="note-check" data-toggle="${it.id}" ${it.done?"checked":""}>`
         : `<span class="note-check">✎</span>`;
-      const snippet = escapeHtml(stripFormat(it.text||"").slice(0,140));
+      const snippet = renderNoteText(it.text||"");
       let crumbText = "";
       if(searchScope === "subcat"){
         // noteringar direkt i vald undermapp får ingen rad; djupare ner visas vägen dit
@@ -4401,7 +4424,7 @@ function renderList(){
         html += `<div class="note-row ${it.archived?"archived":""}" data-note="${it.id}" style="${breadcrumb?"flex-wrap:wrap;":""}">
           ${breadcrumb}
           ${check}
-          <div class="note-snippet ${it.done?"done":""}">${snippet}</div>
+          <div class="note-snippet ${expandAll?"":"clamped"} ${it.done?"done":""}">${snippet}</div>
           <div class="note-meta">${fmtDate(it.date)}</div>
         </div>`;
       }
