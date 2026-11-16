@@ -454,6 +454,7 @@
       <div class="kv"><span>Enhet</span><b id="deviceLabel">–</b></div>
       <div class="kv"><span>Väntar på att skickas</span><b id="statPending">0</b></div>
       <div class="kv"><span>Senast kontakt med servern</span><b id="statLastSync">–</b></div>
+      <div class="kv"><span>Senaste fel</span><b id="statLastError" style="font-size:12px; text-align:right;">–</b></div>
       <button class="btn-primary" id="syncNowBtn" style="margin-top:16px; width:100%;">Synka nu</button>
       <p class="hint" id="syncResult" style="margin:8px 0 0; font-size:13px; color:var(--ink-soft); line-height:1.5;"></p>
       <button class="btn-secondary" id="shareGroupBtn" style="margin-top:16px; width:100%;">Visa kod för att koppla ny enhet</button>
@@ -2874,7 +2875,7 @@ import {
   enableNetwork, disableNetwork, waitForPendingWrites, getDocsFromServer, getDocFromServer
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.7.1";
+const APP_VERSION = "1.7.2";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -3282,7 +3283,8 @@ signInAnonymously(auth).catch(err=>{
 });
 
 /* ---------- Synkstatus och "Synka nu" ---------- */
-const syncState = { pending: 0, lastSync: null, serverError: false };
+const syncState = { pending: 0, lastSync: null, serverError: false, lastError: "" };
+let listenerRestarts = 0, listenerRestartTimer = null;
 function updateSyncStatus(){
   const offline = !navigator.onLine;
   const bad = offline || syncState.serverError;
@@ -3301,6 +3303,8 @@ function updateSyncStatus(){
   if(nt) nt.textContent = (bad || n > 0) ? label : "Ansluten — synkar automatiskt";
   const sp = document.getElementById("statPending");
   if(sp) sp.textContent = n;
+  const le = document.getElementById("statLastError");
+  if(le) le.textContent = syncState.lastError || "–";
   const sl = document.getElementById("statLastSync");
   if(sl) sl.textContent = syncState.lastSync
     ? syncState.lastSync.toLocaleTimeString("sv-SE", {hour:"2-digit", minute:"2-digit", second:"2-digit"}) : "–";
@@ -3308,8 +3312,23 @@ function updateSyncStatus(){
 // Anropas för varje ögonblicksbild av posterna (även när bara metadata ändrats)
 function noteItemsMetadata(snap){
   syncState.pending = snap.docs.filter(d=>d.metadata.hasPendingWrites).length;
-  if(!snap.metadata.fromCache){ syncState.lastSync = new Date(); syncState.serverError = false; }
+  if(!snap.metadata.fromCache){ syncState.lastSync = new Date(); syncState.serverError = false; listenerRestarts = 0; }
   updateSyncStatus();
+}
+// En Firestore-lyssnare som fått ett fel är död för gott. Visa felet och starta om lyssnarna (med växande väntetid).
+function onListenerError(name, err){
+  console.error("Lyssnarfel", name, err);
+  syncState.lastError = name + ": " + (err && err.code ? err.code : String(err));
+  syncState.serverError = true;
+  updateSyncStatus();
+  clearTimeout(listenerRestartTimer);
+  const delay = Math.min(60000, 8000 * Math.pow(2, listenerRestarts++));
+  listenerRestartTimer = setTimeout(()=>{
+    if(!wsId) return;
+    syncState.serverError = false;
+    startWorkspaceListeners();
+    updateSyncStatus();
+  }, delay);
 }
 window.addEventListener("online", ()=>{ enableNetwork(db).catch(()=>{}); syncState.serverError = false; updateSyncStatus(); });
 window.addEventListener("offline", updateSyncStatus);
@@ -3335,9 +3354,25 @@ async function syncNow(){
       getDocsFromServer(col("subjects")), getDocsFromServer(col("subcats")), getDocsFromServer(col("items"))
     ]);
     syncState.serverError = false; syncState.lastSync = new Date();
-    await new Promise(r=>setTimeout(r, 800));      // låt lyssnarna hinna uppdatera listorna
-    let msg = `Servern har ${sSubj.size} mappar, ${sSub.size} undermappar och ${sItems.size} noteringar. `
+    const want = {subj: sSubj.size, sub: sSub.size, it: sItems.size};
+    const inSync = () => subjects.length === want.subj && subcats.length === want.sub && items.length === want.it;
+    const waitForSync = async (tries) => {
+      for(let n=0; n<tries && !inSync(); n++) await new Promise(r=>setTimeout(r, 500));
+      return inSync();
+    };
+    let converged = await waitForSync(16);                 // upp till ~8 s
+    let restarted = false;
+    if(!converged && syncState.pending === 0){
+      // Servern har mer än listorna på den här enheten: lyssnarna ligger efter. Starta om dem.
+      startWorkspaceListeners();
+      restarted = true;
+      converged = await waitForSync(16);
+    }
+    let msg = `Servern har ${want.subj} mappar, ${want.sub} undermappar och ${want.it} noteringar. `
             + `Den här enheten visar ${subjects.length}, ${subcats.length} och ${items.length}.`;
+    if(converged) msg += restarted ? " Det stämde efter att listorna startades om." : " Allt stämmer.";
+    else if(syncState.pending > 0) msg += " Siffrorna skiljer sig eftersom ändringar från den här enheten ännu inte skickats.";
+    else msg += " Siffrorna stämmer fortfarande inte" + (restarted ? " trots omstart." : ".") + " Stäng appen helt och öppna den igen.";
     if(pendingBefore > 0){
       msg += flushed ? ` ${pendingBefore} väntande ändring${pendingBefore===1?"":"ar"} skickades.`
                      : ` ${pendingBefore} ändring${pendingBefore===1?"":"ar"} kunde inte skickas ännu (ingen kontakt?).`;
@@ -3394,44 +3429,51 @@ function startWorkspaceListeners(){
   }
 
   unsubSubjects = onSnapshot(subjectsCol, async snap=>{
+    const my = ++subjSeq;
     const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
     const decrypted = await Promise.all(raw.map(async s=>({...s, name: await decryptText(s.name)})));
+    if(my !== subjSeq) return;
     subjects = decrypted.sort((a,b)=>createdAtMillisSafe(a.createdAt)-createdAtMillisSafe(b.createdAt));
     document.getElementById("statSubjects").textContent = subjects.length;
     subjectsLoadedOnce = true;
     maybeRunSubjectTypeMigration();
     maybeRepairMismatchedSubcatRefs();
     renderAll();
-  }, err=>console.error(err));
+  }, err=>onListenerError("mappar", err));
 
   unsubSubcats = onSnapshot(subcatsCol, async snap=>{
+    const my = ++subcatSeq;
     const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
     const decrypted = await Promise.all(raw.map(async sc=>({...sc, name: await decryptText(sc.name)})));
+    if(my !== subcatSeq) return;
     subcats = decrypted.sort((a,b)=>createdAtMillisSafe(a.createdAt)-createdAtMillisSafe(b.createdAt));
     subcatsLoadedOnce = true;
     maybeRunSubjectTypeMigration();
     maybeRepairMismatchedSubcatRefs();
     renderAll();
-  }, err=>console.error(err));
+  }, err=>onListenerError("undermappar", err));
 
   unsubItems = onSnapshot(itemsCol, { includeMetadataChanges: true }, async snap=>{
     noteItemsMetadata(snap);
     // Bara metadata ändrades (t.ex. en ändring har nått servern): innehållet är detsamma, så rita
     // inte om. Annars kan ett pågående formulär nollställas när servern kvitterar.
     if(itemsLoadedOnce && snap.docChanges().length === 0) return;
+    const my = ++itemSeq;
     const raw = snap.docs.map(d=>({id:d.id, ...d.data()}));
     const decrypted = await Promise.all(raw.map(async it=>({...it, text: await decryptText(it.text)})));
+    if(my !== itemSeq) return;
     items = decrypted.sort((a,b)=>createdAtMillisSafe(b.createdAt)-createdAtMillisSafe(a.createdAt));
     document.getElementById("statItems").textContent = items.length;
     itemsLoadedOnce = true;
     maybeRunSubjectTypeMigration();
     maybeRepairMismatchedSubcatRefs();
     renderAll();
-  }, err=>console.error(err));
+  }, err=>onListenerError("noteringar", err));
 }
 
 /* ---------- Migrering: äldre mappar (utan typ) sorteras in under Anteckning/2do-list ---------- */
 let subjectsLoadedOnce = false, subcatsLoadedOnce = false, itemsLoadedOnce = false;
+let subjSeq = 0, subcatSeq = 0, itemSeq = 0;   // löpnummer: en äldre, långsammare ögonblicksbild får aldrig skriva över en nyare
 let isMigratingSubjectTypes = false;
 async function maybeRunSubjectTypeMigration(){
   if(isMigratingSubjectTypes) return;
