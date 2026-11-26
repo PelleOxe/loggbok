@@ -361,6 +361,8 @@
   .read-empty{color:var(--ink-soft); font-style:italic; font-size:14px; text-align:center; padding:40px 10px;}
   .read-header{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;}
   .read-header .btn-secondary{padding:7px 12px; font-size:13px;}
+  .note-edit-btn{flex:none; margin:0; padding:4px 10px; font-size:13px; font-family:var(--font-body); font-weight:600; color:var(--accent-ink); background:transparent; border:1px solid currentColor; border-radius:6px; cursor:pointer;}
+  .note-edit-actions{display:flex; justify-content:flex-end; margin-top:10px;}
   .read-text-view{white-space:pre-wrap; word-break:break-word; font-size:15px; line-height:1.45; padding:4px 2px;}
   .read-text-view.done{text-decoration:line-through; opacity:.65;}
   .note-row.selected label{color:var(--ink);}
@@ -2875,7 +2877,7 @@ import {
   enableNetwork, disableNetwork, waitForPendingWrites, getDocsFromServer, getDocFromServer
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-const APP_VERSION = "1.7.2";
+const APP_VERSION = "1.7.3";
 document.getElementById("verNum").textContent = APP_VERSION;
 document.getElementById("yearNow").textContent = new Date().getFullYear();
 
@@ -4081,6 +4083,7 @@ function noteDetailHtml(it){
         ${it.doneDate ? `<span class="done-date">Klar: ${fmtDateShort(it.doneDate)}</span>` : ""}
       </div>` : ""}
     ${it.archived ? `<div class="note-meta" style="margin-top:8px;">Arkiverad</div>` : ""}
+    <div class="note-edit-actions"><button type="button" class="note-edit-btn" data-edit-note="${it.id}">✏️ Redigera</button></div>
   `;
 }
 function noteFormHtml(it){
@@ -4191,6 +4194,20 @@ function wireNoteForm(container, it){
       symToggle.setAttribute("aria-expanded", open ? "true" : "false");
       symToggle.title = open ? "Dölj specialtecken" : "Visa specialtecken";
     });
+  }
+  // Textfältet växer med innehållet (högst 60 % av skärmhöjden). Vid redigering av en befintlig
+  // notering hamnar markören sist, så att man direkt kan lägga till text.
+  const autosize = () => {
+    textArea.style.height = "auto";
+    textArea.style.height = Math.min(textArea.scrollHeight + 4, Math.round(window.innerHeight * 0.6)) + "px";
+  };
+  textArea.addEventListener("input", autosize);
+  autosize();
+  if(it){
+    textArea.focus();
+    const n = textArea.value.length;
+    textArea.setSelectionRange(n, n);
+    textArea.scrollTop = textArea.scrollHeight;
   }
   // Formatering: knapparna F K U och Ctrl/Cmd + B, I, U
   container.querySelectorAll(".fmt-btn").forEach(btn => {
@@ -4459,6 +4476,7 @@ function renderList(){
           <div class="note-detail-head" data-note-head="${it.id}" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer;">
             ${headMark}
             <div class="note-meta" style="flex:1;">${fmtDate(it.date)}</div>
+            ${readMode === "edit" ? "" : `<button type="button" class="note-edit-btn" data-edit-note="${it.id}">✏️ Redigera</button>`}
           </div>
           ${inner}
         </div>`;
@@ -4553,8 +4571,14 @@ function renderList(){
   });
   root.querySelectorAll("[data-note]").forEach(row=>{
     row.addEventListener("click", e=>{
-      if(e.target.closest("[data-toggle]") || e.target.closest("a") || e.target.closest("#readTextArea, #readDateInput, #readNoDate, #readSubjectSelect, #readSubcatSelect, #readSaveBtn, #readCancelBtn, .note-form")) return;
+      if(e.target.closest("[data-toggle]") || e.target.closest("a") || e.target.closest("#readTextArea, #readDateInput, #readNoDate, #readSubjectSelect, #readSubcatSelect, #readSaveBtn, #readCancelBtn, .note-form, .read-text-view, .todo-dates, [data-edit-note]")) return;
       selectNote(row.dataset.note);
+    });
+  });
+  root.querySelectorAll("[data-edit-note]").forEach(b=>{
+    b.addEventListener("click", e=>{
+      e.stopPropagation();
+      if(selNoteId === b.dataset.editNote) startEditNote();
     });
   });
 }
@@ -4580,6 +4604,7 @@ function updateToolbarState(){
   btnAddSubcat.title = atMaxDepth ? "Undermappar kan ligga högst två nivåer under en mapp" : "";
   btnRename.disabled = !(kind==="subject" || kind==="subcat");
   btnEdit.disabled = !(kind==="subcat" || kind==="note");
+  btnEdit.textContent = kind === "subcat" ? "📂 Flytta" : "✏️ Redigera";   // en markerad undermapp kan bara flyttas här
   btnArchive.disabled = !(kind==="subject" || kind==="subcat" || kind==="note");
   btnDelete.disabled = !(kind==="subject" || kind==="subcat" || kind==="note");
 }
